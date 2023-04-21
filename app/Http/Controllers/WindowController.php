@@ -83,6 +83,9 @@ class WindowController extends Controller
         if ($target['health'] < 1) {
             unset($woods[$target['y']][$target['x']]);
             cache()->set('battle-status', false);
+            $colors = cache()->get('colors-map');
+            unset($colors[$target['y']][$target['x']]);
+            cache()->set('colors-map', $colors);
         } else {
             $woods[$target['y']][$target['x']] = $target;
         }
@@ -121,14 +124,26 @@ class WindowController extends Controller
     {
         $map = [];
         $woods = $this->getWoods();
+        $colors = cache()->get('colors-map', []);
         for ($y = $this->getPosition('y') - 5; $y < $this->getPosition('y') + 5; $y++) {
             $row = [];
             for ($x = $this->getPosition('x') - 5; $x < $this->getPosition('x') + 5; $x++) {
-                $row[] = $cell = ['x' => $x, 'y' => $y, 'wood' => isset($woods[$y][$x])];
+                if (isset($woods[$y][$x])) {
+                    $colors[$y][$x] = 'bg-green-400';
+                } elseif (!isset($colors[$y][$x])) {
+                    $colors[$y][$x] = 'bg-amber-'.rand(6, 8).'00';
+                }
+                $row[] = $cell = [
+                    'x' => $x,
+                    'y' => $y,
+                    'wood' => isset($woods[$y][$x]),
+                    'color' => $colors[$y][$x],
+                ];
                 $this->coords[$y][$x] = $cell;
             }
             $map[] = $row;
         }
+        cache()->set('colors-map', $colors);
 
         return $map;
     }
@@ -149,7 +164,7 @@ class WindowController extends Controller
         if ($woods) {
             return $woods;
         }
-        for ($i = 0; $i < rand(1, 5); $i++) {
+        for ($i = 0; $i < rand(4, 15); $i++) {
             $y = rand(0, 9);
             $x = rand(0, 9);
             $woods[$y][$x] = [
