@@ -45,6 +45,9 @@ Route::name('window.')
         Route::get('', 'index')->name('index');
         Route::post('', 'start')->name('start');
         Route::post('move', 'move')->name('move');
+        Route::post('battle', 'battle')->name('battle');
+        Route::post('leave-battle', 'leaveBattle')->name('leaveBattle');
+        Route::post('fight', 'fight')->name('fight');
     });
 
 require __DIR__.'/auth.php';

@@ -28,6 +28,20 @@ Echo.channel(`test-${usePage().props.auth.user.id}`)
         document.querySelector('#logs').prepend(newDiv);
     });
 
+const battleForm = useForm({});
+
+const startBattle = () => {
+    battleForm.post(route('window.battle'));
+};
+
+const leaveBattle = () => {
+    useForm({}).post(route('window.leaveBattle'));
+};
+
+const fight = () => {
+    useForm({}).post(route('window.fight'));
+};
+
 </script>
 
 <template>
@@ -42,12 +56,15 @@ Echo.channel(`test-${usePage().props.auth.user.id}`)
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">
                         <div class="w-100 border mb-2 flex flex-row items-center" style="height: 50px">
-                            <PrimaryButton :disabled="!$page.props.targets.length" :class="{'opacity-25': !$page.props.targets.length}">
+                            <PrimaryButton :disabled="!$page.props.targets.length" :class="{'opacity-25': !$page.props.targets.length}" @click="startBattle">
                                 Fight{{ $page.props.targets.length ? ` (${$page.props.targets.length})` : '' }}
+                            </PrimaryButton>
+                            <PrimaryButton :disabled="!$page.props.battleStatus" @click="leaveBattle" class="ml-3" :class="{'opacity-25': !$page.props.battleStatus}">
+                                Leave
                             </PrimaryButton>
                         </div>
                         <div class="text-center flex flex-row">
-                            <div class="inline-block border" style="width: 1002px"
+                            <div v-if="!$page.props.battleStatus" class="inline-block border" style="width: 1002px"
                                  @keyup.up="move('y', -1)"
                                  @keyup.down="move('y', 1)"
                                  @keyup.right="move('x', 1)"
@@ -57,10 +74,24 @@ Echo.channel(`test-${usePage().props.auth.user.id}`)
                                 <div v-for="row in $page.props.map" class="flex flex-row">
                                     <div v-for="cell in row" class="flex items-center justify-center" style="width: 100px; height: 100px">
                                         <div v-if="$page.props.position.x === cell.x && $page.props.position.y === cell.y"
-                                             class="bg-slate-200 flex flex-row items-center justify-center"
+                                             class="flex flex-col bg-slate-200"
                                              style="width: 100px; height: 100px"
                                         >
-                                            Player
+                                            <div class="flex flex-row" style="height: 25px;">
+                                                <div class="w-1/5"></div>
+                                                <div class="w-3/5" style="rotate: -90deg" :class="{'text-slate-300': $page.props.moveName !== 'up'}">&#10093;</div>
+                                                <div class="w-1/5"></div>
+                                            </div>
+                                            <div class="flex flex-row items-center" style="height: 50px;">
+                                                <div class="w-1/5" :class="{'text-slate-300': $page.props.moveName !== 'left'}">&#10092;</div>
+                                                <div class="w-3/5">Player</div>
+                                                <div class="w-1/5" :class="{'text-slate-300': $page.props.moveName !== 'right'}">&#10093;</div>
+                                            </div>
+                                            <div class="flex flex-row" style="height: 25px;">
+                                                <div class="w-1/5"></div>
+                                                <div class="w-3/5" style="rotate: 90deg" :class="{'text-slate-300': $page.props.moveName !== 'down'}">&#10093;</div>
+                                                <div class="w-1/5"></div>
+                                            </div>
                                         </div>
                                         <div v-else class="flex flex-row items-center justify-center"
                                              :class="{'bg-green-200': cell.wood}"
@@ -69,6 +100,56 @@ Echo.channel(`test-${usePage().props.auth.user.id}`)
                                             {{ cell.y }}x{{ cell.x }}
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                            <div v-else class="inline-block border" style="width: 1002px;" tabindex="0">
+                                <div style="width: 1002px; height: 1002px;">
+                                    <div class="flex flex-row" style="height: 501px;">
+                                        <div class="w-1/3 m-2 border">
+                                            <div style="height: 101px;" class="flex flex-row items-center justify-center">
+                                                Player
+                                            </div>
+                                            <div style="height: calc(400px - 99px - 2rem)">
+                                                items
+                                            </div>
+                                            <div>
+                                                <div class="m-2 border">
+                                                    <div class="bg-red-300">health</div>
+                                                </div>
+                                                <div class="m-2 border">
+                                                    <div class="bg-blue-300">mana</div>
+                                                </div>
+                                                <div class="m-2 border">
+                                                    <div class="bg-yellow-300">else</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="w-1/3 m-2 border">
+                                            <div class="flex flex-row items-center justify-center h-full">
+                                                <PrimaryButton @click="fight">Fight</PrimaryButton>
+                                            </div>
+                                        </div>
+                                        <div class="w-1/3 m-2 border">
+                                            <div style="height: 101px;" class="flex flex-row items-center justify-center">
+                                                Target
+                                            </div>
+                                            <div style="height: calc(400px - 99px - 2rem)">
+                                                items
+                                            </div>
+                                            <div>
+                                                <div class="m-2 border">
+                                                    <div class="bg-red-300">{{ `${$page.props.targetFight.health} / ${$page.props.targetFight.fullHealth}` }}</div>
+                                                </div>
+                                                <div class="m-2 border">
+                                                    <div class="bg-blue-300">mana</div>
+                                                </div>
+                                                <div class="m-2 border">
+                                                    <div class="bg-yellow-300">else</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div></div>
                                 </div>
                             </div>
                             <div id="logs" class="ml-2 border text-left" style="width: 100%; max-height: 1002px; overflow-y: scroll;"></div>

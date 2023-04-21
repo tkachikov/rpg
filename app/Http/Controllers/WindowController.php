@@ -26,6 +26,9 @@ class WindowController extends Controller
             ],
             'map' => $this->getMap(),
             'targets' => $this->getTargets(),
+            'moveName' => cache()->get('move-name'),
+            'battleStatus' => cache()->get('battle-status', false),
+            'targetFight' => $this->getTarget(),
         ]);
     }
 
@@ -39,6 +42,7 @@ class WindowController extends Controller
         $this->getMap();
         $position = $request->string('position')->toString();
         $step = $request->integer('step');
+        cache()->set('move-name', $this->moveName($position, $step));
         $nextCell = [
             'x' => $this->getPosition('x') + ($position == 'x' ? $step : 0),
             'y' => $this->getPosition('y') + ($position == 'y' ? $step : 0),
@@ -50,6 +54,67 @@ class WindowController extends Controller
         } else {
             $this->event('This has wood!');
         }
+    }
+
+    public function battle(Request $request)
+    {
+        $target = $this->getTarget();
+        $status = (bool) $target;
+        if ($status) {
+            $this->event("Health target: {$target['health']}");
+        }
+        $this->event("Battle start: " . (int) $status);
+        cache()->set('battle-status', $status);
+    }
+
+    public function leaveBattle()
+    {
+        cache()->set('battle-status', false);
+    }
+
+    public function fight()
+    {
+        $target = $this->getTarget();
+        $damagePlayer = $this->getDamage();
+        $damage = rand($damagePlayer['min'], $damagePlayer['max']);
+        $target['health'] -= $damage;
+        $this->event("-$damage ({$target['health']})");
+        $woods = $this->getWoods();
+        if ($target['health'] < 1) {
+            unset($woods[$target['y']][$target['x']]);
+            cache()->set('battle-status', false);
+        } else {
+            $woods[$target['y']][$target['x']] = $target;
+        }
+        cache()->set('woods', $woods);
+    }
+
+    protected function getTarget()
+    {
+        $this->getMap();
+        $cell = $this->getPlayerPosition();
+        $target = [
+            'x' => $cell['x'] + ($cell['move'] == 'left' ? -1 : ($cell['move'] == 'right' ? 1 : 0)),
+            'y' => $cell['y'] + ($cell['move'] == 'up' ? -1 : ($cell['move'] == 'down' ? 1 : 0)),
+        ];
+
+        return $this->coords[$target['y']][$target['x']]['wood']
+            ? $this->getWoods()[$target['y']][$target['x']]
+            : null;
+    }
+
+    protected function getDamage()
+    {
+        $danger = cache()->get('danger');
+        if (!$danger) {
+            $danger = [
+                'min' => $min = rand(1, 4),
+                'max' => rand($min + 1, $min + 4),
+            ];
+            cache()->set('danger', $danger);
+        }
+
+        return $danger;
     }
 
     protected function getMap()
@@ -87,7 +152,12 @@ class WindowController extends Controller
         for ($i = 0; $i < rand(1, 5); $i++) {
             $y = rand(0, 9);
             $x = rand(0, 9);
-            $woods[$y][$x] = true;
+            $woods[$y][$x] = [
+                'x' => $x,
+                'y' => $y,
+                'health' => $health = rand(15, 30),
+                'fullHealth' => $health,
+            ];
         }
         cache()->set('woods', $woods);
 
@@ -96,13 +166,17 @@ class WindowController extends Controller
 
     protected function logMove(string $position, int $step)
     {
-        $move = match (true) {
+        $this->event("move {$this->moveName($position, $step)}");
+    }
+
+    protected function moveName(string $position, int $step)
+    {
+        return match (true) {
             $position === 'x' && $step > 0 => 'right',
             $position === 'x' && $step < 0 => 'left',
             $position === 'y' && $step > 0 => 'down',
             $position === 'y' && $step < 0 => 'up',
         };
-        $this->event("move $move");
     }
 
     protected function event(string $message)
@@ -132,5 +206,14 @@ class WindowController extends Controller
         }
 
         return $targets;
+    }
+
+    protected function getPlayerPosition()
+    {
+        return [
+            'x' => $this->getPosition('x'),
+            'y' => $this->getPosition('y'),
+            'move' => cache()->get('move-name', 'down'),
+        ];
     }
 }
