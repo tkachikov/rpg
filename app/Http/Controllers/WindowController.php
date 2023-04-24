@@ -19,6 +19,7 @@ class WindowController extends Controller
     public function index(Request $request): Response
     {
         return Inertia::render('Window/Index', [
+            'player' => $this->getPlayer(),
             'test' => cache()->get('test'),
             'position' => [
                 'x' => $this->getPosition('x'),
@@ -74,11 +75,21 @@ class WindowController extends Controller
 
     public function fight()
     {
-        $target = $this->getTarget();
         $damagePlayer = $this->getDamage();
         $damage = rand($damagePlayer['min'], $damagePlayer['max']);
+
+        $target = $this->getTarget();
         $target['health'] -= $damage;
-        $this->event("-$damage ({$target['health']})");
+        $this->event("wood -$damage ({$target['health']})");
+
+        if ($target['attack']) {
+            $damageTarget = rand($target['damage']['min'], $target['damage']['max']);
+            $player = $this->getPlayer();
+            $player['health'] -= $damageTarget;
+            $this->event("you -$damageTarget ({$player['health']})");
+            cache()->set('player', $player);
+        }
+
         $woods = $this->getWoods();
         if ($target['health'] < 1) {
             unset($woods[$target['y']][$target['x']]);
@@ -90,6 +101,20 @@ class WindowController extends Controller
             $woods[$target['y']][$target['x']] = $target;
         }
         cache()->set('woods', $woods);
+    }
+
+    protected function getPlayer(): array
+    {
+        $player = cache()->get('player');
+        if (!$player) {
+            $player = [
+                'health' => 50,
+                'fullHealth' => 50,
+            ];
+            cache()->set('player', $player);
+        }
+
+        return $player;
     }
 
     protected function getTarget()
@@ -129,7 +154,9 @@ class WindowController extends Controller
             $row = [];
             for ($x = $this->getPosition('x') - 5; $x < $this->getPosition('x') + 5; $x++) {
                 if (isset($woods[$y][$x])) {
-                    $colors[$y][$x] = 'bg-green-400';
+                    $colors[$y][$x] = $woods[$y][$x]['attack']
+                        ? 'bg-red-400'
+                        : 'bg-green-400';
                 } elseif (!isset($colors[$y][$x])) {
                     $colors[$y][$x] = 'bg-amber-'.rand(6, 8).'00';
                 }
@@ -172,6 +199,11 @@ class WindowController extends Controller
                 'y' => $y,
                 'health' => $health = rand(15, 30),
                 'fullHealth' => $health,
+                'attack' => (bool) rand(0, 1),
+                'damage' => [
+                    'min' => $min = rand(1, 3),
+                    'max' => rand($min, $min + 3),
+                ],
             ];
         }
         cache()->set('woods', $woods);
