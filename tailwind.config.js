@@ -9,6 +9,13 @@ module.exports = {
         './resources/js/**/*.vue',
     ],
 
+    safelist: [
+        'bg-green-400',
+        'bg-amber-600',
+        'bg-amber-700',
+        'bg-amber-800',
+    ],
+
     theme: {
         extend: {
             fontFamily: {

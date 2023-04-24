@@ -134,8 +134,9 @@ const fight = () => {
                                                 items
                                             </div>
                                             <div>
-                                                <div class="m-2 border">
-                                                    <div class="bg-red-300">{{ `${$page.props.targetFight.health} / ${$page.props.targetFight.fullHealth}` }}</div>
+                                                <div class="m-2 border relative">
+                                                    <div class="bg-red-300 absolute" :style="{'height': '24px', 'width': 'calc(100% * '+($page.props.targetFight.health / $page.props.targetFight.fullHealth)+')'}"></div>
+                                                    <div class="relative">{{ `${$page.props.targetFight.health} / ${$page.props.targetFight.fullHealth}` }}</div>
                                                 </div>
                                                 <div class="m-2 border">
                                                     <div class="bg-blue-300">mana</div>
