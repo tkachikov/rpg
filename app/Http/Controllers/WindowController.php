@@ -55,6 +55,7 @@ class WindowController extends Controller
         } else {
             $this->event('This has wood!');
         }
+        $this->moveWoods();
     }
 
     public function battle(Request $request)
@@ -262,5 +263,48 @@ class WindowController extends Controller
             'y' => $this->getPosition('y'),
             'move' => cache()->get('move-name', 'down'),
         ];
+    }
+
+    protected function moveWoods()
+    {
+        $woods = $this->getWoods();
+        $newWoods = [];
+        $player = $this->getPlayerPosition();
+        foreach ($woods as $y => $item) {
+            foreach ($item as $x => $wood) {
+                if (!$this->playerInArea($player, $wood)) {
+                    $wood['y'] += rand(-1, 1);
+                    $wood['x'] += rand(-1, 1);
+                }
+                $newWoods[$wood['y']][$wood['x']] = $wood;
+            }
+        }
+        cache()->set('colors-map', []);
+        cache()->set('woods', $newWoods);
+    }
+
+    /**
+     * @param $player
+     * @param $wood
+     * @return bool
+     */
+    protected function playerInArea($player, $wood): bool
+    {
+        $keys = [
+            [-1, -1],
+            [-1, 0],
+            [-1, 1],
+            [0, 1],
+            [0, -1],
+            [1, -1],
+            [1, 0],
+            [1, 1]
+        ];
+        $coords = [];
+        foreach ($keys as $key) {
+            $coords[$wood['y'] + $key[0]][$wood['x'] + $key[1]] = true;
+        }
+
+        return isset($coords[$player['y']][$player['x']]);
     }
 }

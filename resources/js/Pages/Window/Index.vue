@@ -94,7 +94,7 @@ const fight = () => {
                                             </div>
                                         </div>
                                         <div v-else class="flex flex-row items-center justify-center" :class="[cell.color]" style="width: 100px; height: 100px">
-
+                                            {{ cell.y }}x{{ cell.x }}
                                         </div>
                                     </div>
                                 </div>
