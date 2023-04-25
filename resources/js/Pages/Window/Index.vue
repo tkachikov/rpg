@@ -73,23 +73,23 @@ const fight = () => {
                             >
                                 <div v-for="row in $page.props.map" class="flex flex-row">
                                     <div v-for="cell in row" class="flex items-center justify-center" style="width: 100px; height: 100px">
-                                        <div v-if="$page.props.position.x === cell.x && $page.props.position.y === cell.y"
+                                        <div v-if="$page.props.player.x === cell.x && $page.props.player.y === cell.y"
                                              class="flex flex-col bg-slate-200"
                                              style="width: 100px; height: 100px"
                                         >
                                             <div class="flex flex-row" style="height: 25px;">
                                                 <div class="w-1/5"></div>
-                                                <div class="w-3/5" style="rotate: -90deg" :class="{'text-slate-300': $page.props.moveName !== 'up'}">&#10093;</div>
+                                                <div class="w-3/5" style="rotate: -90deg" :class="{'text-slate-300': $page.props.player.moveName !== 'up'}">&#10093;</div>
                                                 <div class="w-1/5"></div>
                                             </div>
                                             <div class="flex flex-row items-center" style="height: 50px;">
-                                                <div class="w-1/5" :class="{'text-slate-300': $page.props.moveName !== 'left'}">&#10092;</div>
+                                                <div class="w-1/5" :class="{'text-slate-300': $page.props.player.moveName !== 'left'}">&#10092;</div>
                                                 <div class="w-3/5">Player</div>
-                                                <div class="w-1/5" :class="{'text-slate-300': $page.props.moveName !== 'right'}">&#10093;</div>
+                                                <div class="w-1/5" :class="{'text-slate-300': $page.props.player.moveName !== 'right'}">&#10093;</div>
                                             </div>
                                             <div class="flex flex-row" style="height: 25px;">
                                                 <div class="w-1/5"></div>
-                                                <div class="w-3/5" style="rotate: 90deg" :class="{'text-slate-300': $page.props.moveName !== 'down'}">&#10093;</div>
+                                                <div class="w-3/5" style="rotate: 90deg" :class="{'text-slate-300': $page.props.player.moveName !== 'down'}">&#10093;</div>
                                                 <div class="w-1/5"></div>
                                             </div>
                                         </div>
