@@ -24,12 +24,12 @@ class WindowController extends Controller
     public function index(Request $request): Response
     {
         return Inertia::render('Window/Index', [
-            'player' => $this->game->getPlayer(),
             'test' => cache()->get('test'),
-            'map' => $this->getMap(),
-            'targets' => $this->getTargets(),
-            'battleStatus' => cache()->get('battle-status', false),
-            'targetFight' => $this->getTarget(),
+            'player' => $this->game->player,
+            'map' => $this->game->map,
+            'battleStatus' => $this->game->battleStatus,
+            'targets' => [],
+            'targetFight' => null,
         ]);
     }
 
@@ -79,27 +79,22 @@ class WindowController extends Controller
         $damage = rand($this->game->player['damage']['min'], $this->game->player['damage']['max']);
 
         $target = $this->getTarget();
-        $target['health'] -= $damage;
+        $this->game->targets[$target['y']][$target['x']]['health'] -= $damage;
         $this->event("wood -$damage ({$target['health']})");
 
         if ($target['attack']) {
             $damageTarget = rand($target['damage']['min'], $target['damage']['max']);
             $this->game->player['health'] -= $damageTarget;
             $this->event("you -$damageTarget ({$this->game->player['health']})");
-            cache()->set('player', $this->game->player);
         }
 
-        $woods = $this->getWoods();
         if ($target['health'] < 1) {
-            unset($woods[$target['y']][$target['x']]);
+            unset($this->game->targets[$target['y']][$target['x']]);
             cache()->set('battle-status', false);
             $colors = cache()->get('colors-map');
             unset($colors[$target['y']][$target['x']]);
             cache()->set('colors-map', $colors);
-        } else {
-            $woods[$target['y']][$target['x']] = $target;
         }
-        cache()->set('woods', $woods);
     }
 
     protected function getTarget()
@@ -112,65 +107,8 @@ class WindowController extends Controller
         ];
 
         return $this->coords[$target['y']][$target['x']]['wood']
-            ? $this->getWoods()[$target['y']][$target['x']]
+            ? $this->game->targets[$target['y']][$target['x']]
             : null;
-    }
-
-    protected function getMap()
-    {
-        $map = [];
-        $woods = $this->getWoods();
-        $colors = cache()->get('colors-map', []);
-        $player = $this->game->player;
-        for ($y = $player['y'] - 5; $y < $player['y'] + 5; $y++) {
-            $row = [];
-            for ($x = $player['x'] - 5; $x < $player['x'] + 5; $x++) {
-                if (isset($woods[$y][$x])) {
-                    $colors[$y][$x] = $woods[$y][$x]['attack']
-                        ? 'bg-red-400'
-                        : 'bg-green-400';
-                } elseif (!isset($colors[$y][$x])) {
-                    $colors[$y][$x] = 'bg-amber-'.rand(6, 8).'00';
-                }
-                $row[] = $cell = [
-                    'x' => $x,
-                    'y' => $y,
-                    'wood' => isset($woods[$y][$x]),
-                    'color' => $colors[$y][$x],
-                ];
-                $this->coords[$y][$x] = $cell;
-            }
-            $map[] = $row;
-        }
-        cache()->set('colors-map', $colors);
-
-        return $map;
-    }
-
-    protected function getWoods()
-    {
-        $woods = cache()->get('woods');
-        if ($woods) {
-            return $woods;
-        }
-        for ($i = 0; $i < rand(4, 15); $i++) {
-            $y = rand(0, 9);
-            $x = rand(0, 9);
-            $woods[$y][$x] = [
-                'x' => $x,
-                'y' => $y,
-                'health' => $health = rand(15, 30),
-                'fullHealth' => $health,
-                'attack' => (bool) rand(0, 1),
-                'damage' => [
-                    'min' => $min = rand(1, 3),
-                    'max' => rand($min, $min + 3),
-                ],
-            ];
-        }
-        cache()->set('woods', $woods);
-
-        return $woods;
     }
 
     protected function moveName(string $position, int $step)
@@ -186,30 +124,6 @@ class WindowController extends Controller
     protected function event(string $message)
     {
         event(new TestEvent(User::first(), $message));
-    }
-
-    protected function getTargets()
-    {
-        $this->getMap();
-        $cell = ['x' => $this->game->player['x'], 'y' => $this->game->player['y']];
-        $targets = [];
-        $keys = [
-            [0, 1],
-            [0, -1],
-            [1, 0],
-            [-1, 0],
-        ];
-        foreach ($keys as $key) {
-            $target = ['x' => $cell['x'] + $key[0], 'y' => $cell['y'] + $key[1]];
-            if ($this->coords[$target['y']][$target['x']]['wood']) {
-                $targets[] = $target;
-            }
-        }
-        if ($targets) {
-            $this->event("Here targets: " . count($targets));
-        }
-
-        return $targets;
     }
 
     protected function moveWoods()
