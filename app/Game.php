@@ -34,6 +34,14 @@ class Game
 
     /**
      * @return void
+     */
+    public function run(): void
+    {
+        $this->moveTargets();
+    }
+
+    /**
+     * @return void
      * @throws mixed
      *
      */
@@ -353,5 +361,41 @@ class Game
         }
 
         return $damage;
+    }
+
+    /**
+     * @return void
+     */
+    public function moveTargets(): void
+    {
+        $keys = [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+        ];
+        $removed = $moveTargets = [];
+        foreach ($this->targets as $y => $line) {
+            foreach ($line as $x => $target) {
+                if (rand(0, 10) < 5) {
+                    $coords = $keys[rand(0, count($keys) - 1)];
+                    $y = $target['y'] + $coords[0];
+                    $x = $target['x'] + $coords[1];
+                    if (!$this->hereTarget($y, $x)) {
+                        $removed[] = [$target['y'], $target['x']];
+                        $target['y'] = $y;
+                        $target['x'] = $x;
+                        $moveTargets[] = $target;
+                    }
+                }
+            }
+        }
+        foreach ($removed as $remove) {
+            unset($this->targets[$remove[0]][$remove[1]]);
+        }
+        foreach ($moveTargets as $target) {
+            $this->targets[$target['y']][$target['x']] = $target;
+        }
+        cache()->set('targets', $this->targets);
     }
 }

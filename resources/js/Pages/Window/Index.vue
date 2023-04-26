@@ -1,7 +1,9 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
-import {Head, useForm, usePage} from '@inertiajs/vue3';
+import {Head, useForm, usePage, router} from '@inertiajs/vue3';
+
+setInterval(() => router.reload(), 1000);
 
 const move = (position, step) => {
     const moveForm = useForm({
@@ -55,6 +57,7 @@ Echo.channel(`test-${usePage().props.auth.user.id}`)
                             <PrimaryButton :disabled="!$page.props.battleStatus" @click="leaveBattle" class="ml-3" :class="{'opacity-25': !$page.props.battleStatus}">
                                 Leave
                             </PrimaryButton>
+                            {{ $page.props.rand }}
                         </div>
                         <div class="text-center flex flex-row">
                             <div v-if="!$page.props.battleStatus" class="inline-block border" style="width: 1002px"

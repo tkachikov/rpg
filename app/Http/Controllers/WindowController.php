@@ -27,6 +27,7 @@ class WindowController extends Controller
             'map' => $this->game->getMap(),
             'battleStatus' => $this->game->battleStatus,
             'targetFight' => $this->game->getTargetOnFocus(),
+            'rand' => rand(1, 9),
         ]);
     }
 
