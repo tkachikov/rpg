@@ -123,7 +123,15 @@ class Game
                 if (!isset($this->map[$y][$x])) {
                     $this->map[$y][$x] = $this->newCell($y, $x);
                 }
-                $row[] = $this->map[$y][$x];
+                $cell = $this->map[$y][$x];
+                $cell['player'] = $this->herePlayer($y, $x);
+                $cell['target'] = $this->hereTarget($y, $x);
+                if ($cell['target']) {
+                    $cell['color'] = $this->targets[$y][$x]['attack']
+                        ? 'bg-red-400'
+                        : 'bg-green-400';
+                }
+                $row[] = $cell;
             }
             $map[] = $row;
         }
@@ -142,11 +150,9 @@ class Game
         return [
             'x' => $x,
             'y' => $y,
-            'player' => $this->herePlayer($y, $x),
-            'target' => $hereTarget = $this->hereTarget($y, $x),
-            'color' => $hereTarget
-                ? ($this->targets[$y][$x]['attack'] ? 'bg-red-400' : 'bg-green-400')
-                : 'bg-amber-' . rand(6,8) . '00',
+            'player' => false,
+            'target' => false,
+            'color' => 'bg-amber-' . rand(6,8) . '00',
         ];
     }
 
@@ -309,5 +315,43 @@ class Game
         }
 
         return null;
+    }
+
+    /**
+     * @return void
+     */
+    public function fight(): void
+    {
+        $target = $this->getTargetOnFocus();
+
+        $playerDamage = $this->getDamage($this->player);
+        $target['health'] -= $playerDamage;
+        $this->targets[$target['y']][$target['x']] = $target;
+
+        if ($target['health'] < 1) {
+            unset($this->targets[$target['y']][$target['x']]);
+            $this->battleStatus = false;
+            $this->log('target die...');
+        } elseif ($target['attack']) {
+            $targetDamage = $this->getDamage($target);
+            $this->player['health'] -= $targetDamage;
+        }
+    }
+
+    /**
+     * @param array $who
+     * @param bool  $player
+     *
+     * @return int
+     */
+    public function getDamage(array $who, bool $player = true): int
+    {
+        $damage = rand($who['damage']['min'], $who['damage']['max']);
+        if (rand(0, 100) < 5) {
+            $this->log(($player ? 'Player' : 'Target') . ' CRITICAL damage!');
+            $damage *= 2;
+        }
+
+        return $damage;
     }
 }

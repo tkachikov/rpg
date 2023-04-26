@@ -54,24 +54,6 @@ class WindowController extends Controller
 
     public function fight()
     {
-        $damage = rand($this->game->player['damage']['min'], $this->game->player['damage']['max']);
-
-        $target = $this->getTarget();
-        $this->game->targets[$target['y']][$target['x']]['health'] -= $damage;
-        $this->event("wood -$damage ({$target['health']})");
-
-        if ($target['attack']) {
-            $damageTarget = rand($target['damage']['min'], $target['damage']['max']);
-            $this->game->player['health'] -= $damageTarget;
-            $this->event("you -$damageTarget ({$this->game->player['health']})");
-        }
-
-        if ($target['health'] < 1) {
-            unset($this->game->targets[$target['y']][$target['x']]);
-            cache()->set('battle-status', false);
-            $colors = cache()->get('colors-map');
-            unset($colors[$target['y']][$target['x']]);
-            cache()->set('colors-map', $colors);
-        }
+        $this->game->fight();
     }
 }
