@@ -28,8 +28,7 @@ class WindowController extends Controller
             'player' => $this->game->player,
             'map' => $this->game->getMap(),
             'battleStatus' => $this->game->battleStatus,
-            'nearTargets' => $this->game->nearTargets(),
-            'targetFight' => null,
+            'targetFight' => $this->game->getTargetOnFocus(),
         ]);
     }
 
@@ -45,18 +44,12 @@ class WindowController extends Controller
 
     public function battle(Request $request)
     {
-        $target = $this->getTarget();
-        $status = (bool) $target;
-        if ($status) {
-            $this->event("Health target: {$target['health']}");
-        }
-        $this->event("Battle start: " . (int) $status);
-        cache()->set('battle-status', $status);
+        $this->game->battle();
     }
 
     public function leaveBattle()
     {
-        cache()->set('battle-status', false);
+        $this->game->leaveBattle();
     }
 
     public function fight()
@@ -80,67 +73,5 @@ class WindowController extends Controller
             unset($colors[$target['y']][$target['x']]);
             cache()->set('colors-map', $colors);
         }
-    }
-
-    protected function getTarget()
-    {
-        $this->getMap();
-        $cell = $this->game->player;
-        $target = [
-            'x' => $cell['x'] + ($cell['moveName'] == 'left' ? -1 : ($cell['moveName'] == 'right' ? 1 : 0)),
-            'y' => $cell['y'] + ($cell['moveName'] == 'up' ? -1 : ($cell['moveName'] == 'down' ? 1 : 0)),
-        ];
-
-        return $this->coords[$target['y']][$target['x']]['wood']
-            ? $this->game->targets[$target['y']][$target['x']]
-            : null;
-    }
-
-    protected function event(string $message)
-    {
-        event(new TestEvent(User::first(), $message));
-    }
-
-    protected function moveWoods()
-    {
-        $woods = $this->getWoods();
-        $newWoods = [];
-        $player = $this->game->player;
-        foreach ($woods as $y => $item) {
-            foreach ($item as $x => $wood) {
-                if (!$this->playerInArea($player, $wood)) {
-                    $wood['y'] += rand(-1, 1);
-                    $wood['x'] += rand(-1, 1);
-                }
-                $newWoods[$wood['y']][$wood['x']] = $wood;
-            }
-        }
-        cache()->set('colors-map', []);
-        cache()->set('woods', $newWoods);
-    }
-
-    /**
-     * @param $player
-     * @param $wood
-     * @return bool
-     */
-    protected function playerInArea($player, $wood): bool
-    {
-        $keys = [
-            [-1, -1],
-            [-1, 0],
-            [-1, 1],
-            [0, 1],
-            [0, -1],
-            [1, -1],
-            [1, 0],
-            [1, 1]
-        ];
-        $coords = [];
-        foreach ($keys as $key) {
-            $coords[$wood['y'] + $key[0]][$wood['x'] + $key[1]] = true;
-        }
-
-        return isset($coords[$player['y']][$player['x']]);
     }
 }

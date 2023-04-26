@@ -264,4 +264,50 @@ class Game
 
         return $targets ?? [];
     }
+
+    /**
+     * @return void
+     */
+    public function battle(): void
+    {
+        $targetOnFocus = $this->getTargetOnFocus();
+        $this->battleStatus = (bool) $targetOnFocus;
+        $this->log("Battle: " . (int) $this->battleStatus);
+    }
+
+    /**
+     * @return void
+     */
+    public function leaveBattle(): void
+    {
+        $this->battleStatus = false;
+    }
+
+    /**
+     * @return array|null
+     */
+    public function getTargetOnFocus(): ?array
+    {
+        $nearTargets = $this->nearTargets();
+        $cellTarget = [
+            'x' => $this->player['x'] + ($this->player['moveName'] === 'left'
+                    ? -1
+                    : ($this->player['moveName'] === 'right' ? 1 : 0)
+                ),
+            'y' => $this->player['y'] + ($this->player['moveName'] === 'up'
+                    ? -1
+                    : ($this->player['moveName'] === 'down' ? 1 : 0)
+                ),
+        ];
+        foreach ($nearTargets as $target) {
+            if (
+                $target['y'] === $cellTarget['y']
+                && $target['x'] === $cellTarget['x']
+            ) {
+                return $target;
+            }
+        }
+
+        return null;
+    }
 }

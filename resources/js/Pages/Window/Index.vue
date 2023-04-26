@@ -56,8 +56,8 @@ const fight = () => {
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">
                         <div class="w-100 border mb-2 flex flex-row items-center" style="height: 50px">
-                            <PrimaryButton :disabled="!$page.props.nearTargets.length" :class="{'opacity-25': !$page.props.nearTargets.length}" @click="startBattle">
-                                Fight{{ $page.props.nearTargets.length ? ` (${$page.props.nearTargets.length})` : '' }}
+                            <PrimaryButton :disabled="$page.props.targetFight === null || $page.props.battleStatus" :class="{'opacity-25': $page.props.targetFight === null || $page.props.battleStatus}" @click="startBattle">
+                                Fight
                             </PrimaryButton>
                             <PrimaryButton :disabled="!$page.props.battleStatus" @click="leaveBattle" class="ml-3" :class="{'opacity-25': !$page.props.battleStatus}">
                                 Leave
