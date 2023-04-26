@@ -26,7 +26,7 @@ class WindowController extends Controller
         return Inertia::render('Window/Index', [
             'test' => cache()->get('test'),
             'player' => $this->game->player,
-            'map' => $this->game->map,
+            'map' => $this->game->getMap(),
             'battleStatus' => $this->game->battleStatus,
             'targets' => [],
             'targetFight' => null,
@@ -40,22 +40,7 @@ class WindowController extends Controller
 
     public function move(Request $request)
     {
-        $this->getMap();
-        $position = $request->string('position')->toString();
-        $step = $request->integer('step');
-        $this->game->player['moveName'] = $this->moveName($position, $step);
-        $nextCell = [
-            'x' => $this->game->player['x'] + ($position == 'x' ? $step : 0),
-            'y' => $this->game->player['y'] + ($position == 'y' ? $step : 0),
-        ];
-        $this->event("nextCell: {$nextCell['y']}x{$nextCell['x']}");
-        if (!$this->coords[$nextCell['y']][$nextCell['x']]['wood']) {
-            $this->game->player[$position] = $nextCell[$position];
-            $this->event("move {$this->game->player['moveName']}");
-        } else {
-            $this->event('This has wood!');
-        }
-        //$this->moveWoods();
+        $this->game->movePlayer(...$request->only(['position', 'step']));
     }
 
     public function battle(Request $request)
@@ -109,16 +94,6 @@ class WindowController extends Controller
         return $this->coords[$target['y']][$target['x']]['wood']
             ? $this->game->targets[$target['y']][$target['x']]
             : null;
-    }
-
-    protected function moveName(string $position, int $step)
-    {
-        return match (true) {
-            $position === 'x' && $step > 0 => 'right',
-            $position === 'x' && $step < 0 => 'left',
-            $position === 'y' && $step > 0 => 'down',
-            $position === 'y' && $step < 0 => 'up',
-        };
     }
 
     protected function event(string $message)
