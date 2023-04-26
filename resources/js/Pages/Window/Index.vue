@@ -3,8 +3,6 @@ import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import {Head, useForm, usePage, router} from '@inertiajs/vue3';
 
-setInterval(() => router.reload(), 1000);
-
 const move = (position, step) => {
     const moveForm = useForm({
         position: '',

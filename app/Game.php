@@ -155,12 +155,19 @@ class Game
      */
     public function newCell(int $y, int $x): array
     {
+        $colors = [
+            6 => [217, 119, 6],
+            7 => [180, 83, 9],
+            8 => [146, 64, 14],
+        ];
+
         return [
             'x' => $x,
             'y' => $y,
             'player' => false,
             'target' => false,
-            'color' => 'bg-amber-' . rand(6,8) . '00',
+            'color' => 'bg-amber-' . ($color = rand(6,8)) . '00',
+            'rgb' => $colors[$color],
         ];
     }
 
@@ -397,5 +404,23 @@ class Game
             $this->targets[$target['y']][$target['x']] = $target;
         }
         cache()->set('targets', $this->targets);
+    }
+
+    public function render()
+    {
+        header("Content-Type: image/png");
+        $im = imagecreate(1000, 1000);
+        $background_color = imagecolorallocate($im, 255, 255, 255);
+        $text_color = imagecolorallocate($im, 233, 14, 91);
+        $map = $this->getMap();
+        foreach ($map as $y => $row) {
+            $startY = $y * 100;
+            foreach ($row as $x => $cell) {
+                $startX = $x * 100;
+                $color = imagecolorallocate($im, ...$cell['rgb']);
+                imagefilledrectangle($im, $startX, $startY, $startX + 100, $startY + 100, $color);
+            }
+        }
+        imagepng($im);
     }
 }
