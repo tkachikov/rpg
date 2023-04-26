@@ -242,4 +242,26 @@ class Game
     {
         event(new TestEvent(User::first(), $message));
     }
+
+    /**
+     * @return array
+     */
+    public function nearTargets(): array
+    {
+        $keys = [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+        ];
+        foreach ($keys as $key) {
+            $y = $this->player['y'] + $key[0];
+            $x = $this->player['x'] + $key[1];
+            if (isset($this->targets[$y][$x])) {
+                $targets[] = $this->targets[$y][$x];
+            }
+        }
+
+        return $targets ?? [];
+    }
 }

@@ -28,7 +28,7 @@ class WindowController extends Controller
             'player' => $this->game->player,
             'map' => $this->game->getMap(),
             'battleStatus' => $this->game->battleStatus,
-            'targets' => [],
+            'nearTargets' => $this->game->nearTargets(),
             'targetFight' => null,
         ]);
     }
