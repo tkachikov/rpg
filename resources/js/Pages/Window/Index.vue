@@ -1,32 +1,17 @@
 <script setup>
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout.vue";
-import {Head, useForm, usePage} from '@inertiajs/vue3';
 import PrimaryButton from "@/Components/PrimaryButton.vue";
-import {ref} from "vue";
+import {Head, useForm, usePage} from '@inertiajs/vue3';
 
-const form = useForm({});
-
-const start = () => {
-    form.post(route('window.start'));
-};
-
-const moveForm = useForm({
-    position: '',
-    step: 0,
-});
 const move = (position, step) => {
+    const moveForm = useForm({
+        position: '',
+        step: 0,
+    });
     moveForm.position = position;
     moveForm.step = step;
     moveForm.post(route('window.move'));
 };
-
-Echo.channel(`test-${usePage().props.auth.user.id}`)
-    .listen('TestEvent', (e) => {
-        const newDiv = document.createElement('div');
-        const content = document.createTextNode(`[${e.time}]: ${e.message}`);
-        newDiv.appendChild(content);
-        document.querySelector('#logs').prepend(newDiv);
-    });
 
 const battleForm = useForm({});
 
@@ -41,6 +26,14 @@ const leaveBattle = () => {
 const fight = () => {
     useForm({}).post(route('window.fight'));
 };
+
+Echo.channel(`test-${usePage().props.auth.user.id}`)
+    .listen('TestEvent', (e) => {
+        const newDiv = document.createElement('div');
+        const content = document.createTextNode(`[${e.time}]: ${e.message}`);
+        newDiv.appendChild(content);
+        document.querySelector('#logs').prepend(newDiv);
+    });
 
 </script>
 
@@ -153,13 +146,6 @@ const fight = () => {
                             </div>
                             <div id="logs" class="ml-2 border text-left" style="width: 100%; max-height: 1002px; overflow-y: scroll;"></div>
                         </div>
-                        <PrimaryButton
-                            :class="{'opacity-25': form.processing}"
-                            :disabled="form.processing"
-                            @click="start"
-                        >
-                            Start {{ $page.props.test }}
-                        </PrimaryButton>
                     </div>
                 </div>
             </div>

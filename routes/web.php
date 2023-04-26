@@ -43,7 +43,6 @@ Route::name('window.')
     ->controller(WindowController::class)
     ->group(function () {
         Route::get('', 'index')->name('index');
-        Route::post('', 'start')->name('start');
         Route::post('move', 'move')->name('move');
         Route::post('battle', 'battle')->name('battle');
         Route::post('leave-battle', 'leaveBattle')->name('leaveBattle');

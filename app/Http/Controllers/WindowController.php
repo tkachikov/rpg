@@ -3,25 +3,23 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Events\TestEvent;
 use App\Game;
-use App\Models\User;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\Request;
 
 class WindowController extends Controller
 {
-    private array $coords = [];
-
     public function __construct(
         public Game $game,
     ) {}
 
     /**
+     * @throws mixed
+     *
      * @return Response
      */
-    public function index(Request $request): Response
+    public function index(): Response
     {
         return Inertia::render('Window/Index', [
             'test' => cache()->get('test'),
@@ -32,27 +30,38 @@ class WindowController extends Controller
         ]);
     }
 
-    public function start()
-    {
-        cache()->set('test', cache()->get('test', 0)  + 1);
-    }
-
-    public function move(Request $request)
+    /**
+     * @param Request $request
+     *
+     * @return void
+     */
+    public function move(Request $request): void
     {
         $this->game->movePlayer(...$request->only(['position', 'step']));
     }
 
-    public function battle(Request $request)
+    /**
+     * @param Request $request
+     *
+     * @return void
+     */
+    public function battle(Request $request): void
     {
         $this->game->battle();
     }
 
-    public function leaveBattle()
+    /**
+     * @return void
+     */
+    public function leaveBattle(): void
     {
         $this->game->leaveBattle();
     }
 
-    public function fight()
+    /**
+     * @return void
+     */
+    public function fight(): void
     {
         $this->game->fight();
     }

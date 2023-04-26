@@ -236,7 +236,7 @@ class Game
      */
     public function playerCanMove(array $nextCell): bool
     {
-        return !$this->map[$nextCell['y']][$nextCell['x']]['target'];
+        return !$this->hereTarget($nextCell['y'], $nextCell['x']);
     }
 
     /**
