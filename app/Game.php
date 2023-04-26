@@ -106,21 +106,7 @@ class Game
         }
         for ($y = $this->player['y'] - 5; $y < $this->player['y'] + 5; $y++) {
             for ($x = $this->player['x'] - 5; $x < $this->player['x'] + 5; $x++) {
-                $this->map[$y][$x] = [
-                    'x' => $x,
-                    'y' => $y,
-                    'player' => false,
-                    'target' => false,
-                    'color' => 'bg-amber-' . rand(6, 8) . '00',
-                ];
-                if ($this->player['x'] === $x && $this->player['y'] === $y) {
-                    $this->map[$y][$x]['player'] = true;
-                } elseif (isset($this->targets[$y][$x])) {
-                    $this->map[$y][$x]['target'] = true;
-                    $this->map[$y][$x]['color'] = $this->targets[$y][$x]['attack']
-                        ? 'bg-red-400'
-                        : 'bg-green-400';
-                }
+                $this->map[$y][$x] = $this->newCell($y, $x);
             }
         }
     }
@@ -156,10 +142,34 @@ class Game
         return [
             'x' => $x,
             'y' => $y,
-            'player' => false,
-            'target' => false,
-            'color' => 'bg-amber-' . rand(6,8) . '00',
+            'player' => $this->herePlayer($y, $x),
+            'target' => $hereTarget = $this->hereTarget($y, $x),
+            'color' => $hereTarget
+                ? ($this->targets[$y][$x]['attack'] ? 'bg-red-400' : 'bg-green-400')
+                : 'bg-amber-' . rand(6,8) . '00',
         ];
+    }
+
+    /**
+     * @param int $y
+     * @param int $x
+     *
+     * @return bool
+     */
+    public function herePlayer(int $y, int $x): bool
+    {
+        return $this->player['x'] === $x && $this->player['y'] === $y;
+    }
+
+    /**
+     * @param int $y
+     * @param int $x
+     *
+     * @return bool
+     */
+    public function hereTarget(int $y, int $x): bool
+    {
+        return isset($this->targets[$y][$x]);
     }
 
     /**
