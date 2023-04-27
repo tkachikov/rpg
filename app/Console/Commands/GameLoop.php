@@ -28,7 +28,7 @@ class GameLoop extends Command
     {
         while (true) {
             app(Game::class)->run();
-            sleep(1000);
+            usleep(10000);
         }
     }
 }

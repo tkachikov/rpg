@@ -21,7 +21,8 @@ class TestEvent implements ShouldBroadcast
      */
     public function __construct(
         private readonly User   $user,
-        private readonly string $message = 'test'
+        private readonly string $message = 'test',
+        private readonly ?string $img = null,
     ) {
     }
 
@@ -41,8 +42,10 @@ class TestEvent implements ShouldBroadcast
     {
         return [
             'uuid' => Str::uuid(),
-            'time' => now()->format('H:i:s'),
+            'time' => now()->format('H:i:s.u'),
             'message' => $this->message,
+            'render' => (bool) $this->img,
+            'img' => $this->img,
         ];
     }
 }

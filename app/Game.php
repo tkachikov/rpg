@@ -5,9 +5,22 @@ namespace App;
 
 use App\Events\TestEvent;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class Game
 {
+    public User $user;
+
+    public array $colors = [
+        'bg-amber-600' => [217, 119, 6],
+        'bg-amber-700' => [180, 83, 9],
+        'bg-amber-800' => [146, 64, 14],
+        'bg-red-400' => [248, 113, 113],
+        'bg-green-400' => [74, 222, 128],
+        'bg-slate-200' => [226, 232, 240],
+    ];
+
     public array $player;
 
     public array $targets;
@@ -16,20 +29,54 @@ class Game
 
     public bool $battleStatus;
 
-    public function __construct()
+    public function __destruct()
+    {
+        $this->destroy();
+    }
+
+    /**
+     * @throws mixed
+     *
+     * @return void
+     */
+    public function init(): void
     {
         $this->initPlayer();
         $this->initTargets();
         $this->initMap();
-        $this->battleStatus = cache()->get('battle-status') ?? false;
+        $this->battleStatus = cache()->get($this->getKeyCache('battle-status')) ?? false;
     }
 
-    public function __destruct()
+    /**
+     * @return void
+     * @throws mixed
+     */
+    public function destroy(): void
     {
-        cache()->set('player', $this->player);
-        cache()->set('targets', $this->targets);
-        cache()->set('map', $this->map);
-        cache()->set('battle-status', $this->battleStatus);
+        if (isset($this->user)) {
+            cache()->set($this->getKeyCache('player'), $this->player);
+            cache()->set($this->getKeyCache('targets'), $this->targets);
+            cache()->set($this->getKeyCache('map'), $this->map);
+            cache()->set($this->getKeyCache('battle-status'), $this->battleStatus);
+        }
+    }
+
+    public function user(?User $user = null)
+    {
+        if ($user) {
+            $this->user = $user;
+            $this->init();
+        }
+    }
+
+    /**
+     * @param string $key
+     *
+     * @return string
+     */
+    public function getKeyCache(string $key): string
+    {
+        return Auth::id().'-'.$key;
     }
 
     /**
@@ -37,7 +84,8 @@ class Game
      */
     public function run(): void
     {
-        $this->moveTargets();
+        //$this->moveTargets();
+        $this->log('Frame', $this->base64());
     }
 
     /**
@@ -47,8 +95,9 @@ class Game
      */
     public function initPlayer(): void
     {
-        if (cache()->has('player')) {
-            $this->player = cache()->get('player');
+        $key = $this->getKeyCache('player');
+        if (cache()->has($key)) {
+            $this->player = cache()->get($key);
             return;
         }
         $this->player = [
@@ -62,6 +111,8 @@ class Game
                 'max' => rand($min + 1, $min + 3),
             ],
             'color' => 'bg-slate-200',
+            'rgb' => $this->colors['bg-slate-200'],
+            //'rgb' => [rand(0, 255), rand(0, 255), rand(0, 255)],
         ];
     }
 
@@ -72,8 +123,9 @@ class Game
      */
     public function initTargets(): void
     {
-        if (cache()->has('targets')) {
-            $this->targets = cache()->get('targets');
+        $key = $this->getKeyCache('targets');
+        if (cache()->has($key)) {
+            $this->targets = cache()->get($key);
             return;
         }
         for ($i = 0; $i < rand(4, 15); $i++) {
@@ -92,7 +144,9 @@ class Game
                 'y' => $y,
                 'health' => $health = rand(15, 30),
                 'fullHealth' => $health,
-                'attack' => (bool)rand(0, 1),
+                'attack' => $attack = (bool) rand(0, 1),
+                'color' => $color = $attack ? 'bg-red-400' : 'bg-green-400',
+                'rgb' => $this->colors[$color],
                 'damage' => [
                     'min' => $min = rand(1, 3),
                     'max' => rand($min + 1, $min + 3),
@@ -108,8 +162,9 @@ class Game
      */
     public function initMap(): void
     {
-        if (cache()->has('map')) {
-            $this->map = cache()->get('map');
+        $key = $this->getKeyCache('map');
+        if (cache()->has($key)) {
+            $this->map = cache()->get($key);
             return;
         }
         for ($y = $this->player['y'] - 5; $y < $this->player['y'] + 5; $y++) {
@@ -132,12 +187,17 @@ class Game
                     $this->map[$y][$x] = $this->newCell($y, $x);
                 }
                 $cell = $this->map[$y][$x];
-                $cell['player'] = $this->herePlayer($y, $x);
-                $cell['target'] = $this->hereTarget($y, $x);
-                if ($cell['target']) {
-                    $cell['color'] = $this->targets[$y][$x]['attack']
-                        ? 'bg-red-400'
-                        : 'bg-green-400';
+                if ($this->herePlayer($y, $x)) {
+                    $cell['player'] = true;
+                    $cell['playerItem'] = $this->player;
+                    $cell['color'] = $cell['playerItem']['color'];
+                    $cell['rgb'] = $cell['playerItem']['rgb'];
+                }
+                if ($this->hereTarget($y, $x)) {
+                    $cell['target'] = true;
+                    $cell['targetItem'] = $this->targets[$y][$x];
+                    $cell['color'] = $cell['targetItem']['color'];
+                    $cell['rgb'] = $cell['targetItem']['rgb'];
                 }
                 $row[] = $cell;
             }
@@ -155,19 +215,13 @@ class Game
      */
     public function newCell(int $y, int $x): array
     {
-        $colors = [
-            6 => [217, 119, 6],
-            7 => [180, 83, 9],
-            8 => [146, 64, 14],
-        ];
-
         return [
             'x' => $x,
             'y' => $y,
             'player' => false,
             'target' => false,
-            'color' => 'bg-amber-' . ($color = rand(6,8)) . '00',
-            'rgb' => $colors[$color],
+            'color' => ($color = 'bg-amber-' . rand(6,8) . '00'),
+            'rgb' => $this->colors[$color],
         ];
     }
 
@@ -259,9 +313,9 @@ class Game
      *
      * @return void
      */
-    public function log(string $message): void
+    public function log(string $message, ?string $img = null): void
     {
-        event(new TestEvent(User::first(), $message));
+        //event(new TestEvent(User::first(), $message, $img));
     }
 
     /**
@@ -406,21 +460,51 @@ class Game
         cache()->set('targets', $this->targets);
     }
 
-    public function render()
+    /**
+     * @return string
+     */
+    public function render(): string
     {
-        header("Content-Type: image/png");
         $im = imagecreate(1000, 1000);
-        $background_color = imagecolorallocate($im, 255, 255, 255);
-        $text_color = imagecolorallocate($im, 233, 14, 91);
         $map = $this->getMap();
+        $path = Storage::disk('public')->path('Arial.ttf');
+        $black = imagecolorallocate($im, 0, 0, 0);
+        $grey = imagecolorallocate($im, 200, 200, 200);
         foreach ($map as $y => $row) {
             $startY = $y * 100;
             foreach ($row as $x => $cell) {
                 $startX = $x * 100;
                 $color = imagecolorallocate($im, ...$cell['rgb']);
                 imagefilledrectangle($im, $startX, $startY, $startX + 100, $startY + 100, $color);
+                if ($cell['player']) {
+                    // left
+                    imagettftext($im, 14, 0, $startX + 10, $startY + 55, $this->player['moveName'] === 'left' ? $black : $grey, $path, '<');
+                    // right
+                    imagettftext($im, 14, 0, $startX + 80, $startY + 55, $this->player['moveName'] === 'right' ? $black : $grey, $path, '>');
+                    // up
+                    imagettftext($im, 14, 90, $startX + 58, $startY + 24, $this->player['moveName'] === 'up' ? $black : $grey, $path, '>');
+                    // down
+                    imagettftext($im, 14, -90, $startX + 45, $startY + 80, $this->player['moveName'] === 'down' ? $black : $grey, $path, '>');
+                } elseif ($cell['target']) {
+
+                } else {
+                    imagettftext($im, 14, 0, $startX + 35, $startY + 55, $black, $path, $cell['y'].'x'.$cell['x']);
+                }
             }
         }
+        ob_start();
         imagepng($im);
+        $image = ob_get_contents();
+        ob_clean();
+
+        return $image;
+    }
+
+    /**
+     * @return string
+     */
+    public function base64(): string
+    {
+        return 'data:image/png;base64, ' . base64_encode($this->render());
     }
 }

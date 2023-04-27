@@ -49,4 +49,12 @@ Route::name('window.')
         Route::post('fight', 'fight')->name('fight');
     });
 
+Route::name('render.')
+    ->prefix('render')
+    ->middleware('auth')
+    ->controller(WindowController::class)
+    ->group(function () {
+        Route::get('', 'render')->name('index');
+    });
+
 require __DIR__.'/auth.php';
