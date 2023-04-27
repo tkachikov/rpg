@@ -5,6 +5,7 @@ namespace App;
 
 use App\Events\TestEvent;
 use App\Models\User;
+use GdImage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
@@ -14,6 +15,10 @@ class Game
 
     public array $imageColors = [];
 
+    public array $fonts = [];
+
+    public GdImage $image;
+
     public array $colors = [
         'bg-amber-600' => [217, 119, 6],
         'bg-amber-700' => [180, 83, 9],
@@ -21,6 +26,8 @@ class Game
         'bg-red-400' => [248, 113, 113],
         'bg-green-400' => [74, 222, 128],
         'bg-slate-200' => [226, 232, 240],
+        'bg-red-300' => [252, 165, 165],
+        'bg-blue-300' => [147, 197, 253],
     ];
 
     public array $player;
@@ -63,6 +70,16 @@ class Game
         }
     }
 
+    public function refresh()
+    {
+        if (isset($this->user)) {
+            cache()->delete($this->getKeyCache('player'));
+            cache()->delete($this->getKeyCache('targets'));
+            cache()->delete($this->getKeyCache('map'));
+            cache()->delete($this->getKeyCache('battle-status'));
+        }
+    }
+
     public function user(?User $user = null)
     {
         if ($user) {
@@ -78,7 +95,7 @@ class Game
      */
     public function getKeyCache(string $key): string
     {
-        return Auth::id().'-'.$key;
+        return $this->user->id.'-'.$key;
     }
 
     /**
@@ -409,6 +426,10 @@ class Game
         } elseif ($target['attack']) {
             $targetDamage = $this->getDamage($target);
             $this->player['health'] -= $targetDamage;
+            if ($this->player['health'] < 1) {
+                $this->refresh();
+                $this->init();
+            }
         }
     }
 
@@ -470,25 +491,33 @@ class Game
      */
     public function render(): string
     {
-        $im = imagecreate(1000, 1000);
+        $this->image = imagecreate(1000, 1000);
 
-        $this->initColors($im);
-        $this->renderMap($im);
-        $this->renderBattle($im);
+        $this->initColors();
+        $this->initFonts();
+        $this->renderMap();
+        $this->renderBattle();
 
         ob_start();
-        imagepng($im);
+        imagepng($this->image);
         $image = ob_get_contents();
         ob_clean();
 
         return $image;
     }
 
-    public function initColors($im)
+    public function initColors()
     {
-        $this->imageColors['background'] = $this->imageColors['white'] = imagecolorallocate($im, 255, 255, 255);
-        $this->imageColors['black'] = imagecolorallocate($im, 0, 0, 0);
-        $this->imageColors['grey'] = imagecolorallocate($im, 200, 200, 200);
+        $this->imageColors['background'] = $this->imageColors['white'] = imagecolorallocate($this->image, 255, 255, 255);
+        $this->imageColors['black'] = imagecolorallocate($this->image, 0, 0, 0);
+        $this->imageColors['grey'] = imagecolorallocate($this->image, 200, 200, 200);
+        $this->imageColors['hp'] = imagecolorallocate($this->image, ...$this->colors['bg-red-300']);
+        $this->imageColors['mana'] = imagecolorallocate($this->image, ...$this->colors['bg-blue-300']);
+    }
+
+    public function initFonts()
+    {
+        $this->fonts['arial'] = Storage::disk('public')->path('Arial.ttf');
     }
 
     /**
@@ -496,32 +525,31 @@ class Game
      *
      * @return void
      */
-    public function renderMap($im): void
+    public function renderMap(): void
     {
         if ($this->battleStatus) {
             return;
         }
         $map = $this->getMap();
-        $path = Storage::disk('public')->path('Arial.ttf');
         foreach ($map as $y => $row) {
             $startY = $y * 100;
             foreach ($row as $x => $cell) {
                 $startX = $x * 100;
-                $color = imagecolorallocate($im, ...$cell['rgb']);
-                imagefilledrectangle($im, $startX, $startY, $startX + 100, $startY + 100, $color);
+                $color = imagecolorallocate($this->image, ...$cell['rgb']);
+                imagefilledrectangle($this->image, $startX, $startY, $startX + 100, $startY + 100, $color);
                 if ($cell['player']) {
                     // left
-                    imagettftext($im, 14, 0, $startX + 10, $startY + 55, $this->getArrowColorFor('left'), $path, '<');
+                    imagettftext($this->image, 14, 0, $startX + 10, $startY + 55, $this->getArrowColorFor('left'), $this->fonts['arial'], '<');
                     // right
-                    imagettftext($im, 14, 0, $startX + 80, $startY + 55, $this->getArrowColorFor('right'), $path, '>');
+                    imagettftext($this->image, 14, 0, $startX + 80, $startY + 55, $this->getArrowColorFor('right'), $this->fonts['arial'], '>');
                     // up
-                    imagettftext($im, 14, 90, $startX + 58, $startY + 24, $this->getArrowColorFor('up'), $path, '>');
+                    imagettftext($this->image, 14, 90, $startX + 58, $startY + 24, $this->getArrowColorFor('up'), $this->fonts['arial'], '>');
                     // down
-                    imagettftext($im, 14, -90, $startX + 45, $startY + 80, $this->getArrowColorFor('down'), $path, '>');
+                    imagettftext($this->image, 14, -90, $startX + 45, $startY + 80, $this->getArrowColorFor('down'), $this->fonts['arial'], '>');
                 } elseif ($cell['target']) {
 
                 } else {
-                    imagettftext($im, 14, 0, $startX + 35, $startY + 55, $this->imageColors['black'], $path, $cell['y'].'x'.$cell['x']);
+                    imagettftext($this->image, 14, 0, $startX + 35, $startY + 55, $this->imageColors['black'], $this->fonts['arial'], $cell['y'].'x'.$cell['x']);
                 }
             }
         }
@@ -534,52 +562,47 @@ class Game
             : $this->imageColors['grey'];
     }
 
-    /**
-     * @param $im
-     * @return void
-     */
-    public function renderBattle($im): void
+    public function renderBattle(): void
     {
         if ($this->battleStatus) {
-            $this->renderPLayerFight($im);
-            $this->renderAreaFight($im);
-            $this->renderTargetFight($im);
+            $this->renderPLayerFight();
+            $this->renderAreaFight();
+            $this->renderTargetFight();
         }
     }
 
-    public function renderPlayerFight($im)
+    public function renderPlayerFight()
     {
-        $grey = imagecolorallocate($im, 125, 125, 125);
-        imagerectangle($im, 20, 20, 320, 400, $grey);
-        $this->renderStats($im, $this->player, 40);
+        $grey = imagecolorallocate($this->image, 125, 125, 125);
+        imagerectangle($this->image, 20, 20, 320, 400, $grey);
+        $this->renderStats($this->player, 40);
     }
 
-    public function renderAreaFight($im)
+    public function renderAreaFight()
     {
-        $grey = imagecolorallocate($im, 125, 125, 125);
-        imagerectangle($im, 350, 20, 650, 400, $grey);
-        imagefilledrectangle($im, 460, 200, 540, 240, $grey);
-        $path = Storage::disk('public')->path('Arial.ttf');
-        imagettftext($im, 14, 0, 470, 225, $this->imageColors['white'], $path, 'FIGHT');
+        $grey = imagecolorallocate($this->image, 125, 125, 125);
+        imagerectangle($this->image, 350, 20, 650, 400, $grey);
+        imagefilledrectangle($this->image, 460, 200, 540, 240, $grey);
+        imagettftext($this->image, 14, 0, 470, 225, $this->imageColors['white'], $this->fonts['arial'], 'FIGHT');
     }
 
-    public function renderTargetFight($im)
+    public function renderTargetFight()
     {
-        $grey = imagecolorallocate($im, 125, 125, 125);
-        imagerectangle($im, 680, 20, 980, 400, $grey);
-        $this->renderStats($im, $this->getTargetOnFocus(), 700);
+        $grey = imagecolorallocate($this->image, 125, 125, 125);
+        imagerectangle($this->image, 680, 20, 980, 400, $grey);
+        $this->renderStats($this->getTargetOnFocus(), 700);
     }
 
-    public function renderStats($im, $item, $start)
+    public function renderStats($item, $start)
     {
+        imagettftext($this->image, 14, 0, 40, 50, $this->imageColors['grey'], $this->fonts['arial'], 'Player');
+
         $length = 260;
         $fullMana = $start + $length;
-        $blue = imagecolorallocatealpha($im, 0, 0, 150, 50);
-        imagefilledrectangle($im, $start, 370, $fullMana, 390, $blue);
+        imagefilledrectangle($this->image, $start, 370, $fullMana, 390, $this->imageColors['mana']);
 
         $fullHp = $start + (int) ($length * ($item['health'] / $item['fullHealth']));
-        $red = imagecolorallocatealpha($im, 150, 0, 0, 50);
-        imagefilledrectangle($im, $start, 340, $fullHp, 360, $red);
+        imagefilledrectangle($this->image, $start, 340, $fullHp, 360, $this->imageColors['hp']);
     }
 
     /**
