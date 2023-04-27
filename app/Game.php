@@ -12,6 +12,8 @@ class Game
 {
     public User $user;
 
+    public array $imageColors = [];
+
     public array $colors = [
         'bg-amber-600' => [217, 119, 6],
         'bg-amber-700' => [180, 83, 9],
@@ -255,6 +257,9 @@ class Game
      */
     public function movePlayer(string $position, int $step): void
     {
+        if ($this->battleStatus) {
+            return;
+        }
         $this->player['moveName'] = $this->getMoveName($position, $step);
         $nextCell = $this->getNextCell($this->player, $position, $step);
         if ($this->playerCanMove($nextCell)) {
@@ -315,7 +320,7 @@ class Game
      */
     public function log(string $message, ?string $img = null): void
     {
-        //event(new TestEvent(User::first(), $message, $img));
+        event(new TestEvent(User::first(), $message, $img));
     }
 
     /**
@@ -466,32 +471,11 @@ class Game
     public function render(): string
     {
         $im = imagecreate(1000, 1000);
-        $map = $this->getMap();
-        $path = Storage::disk('public')->path('Arial.ttf');
-        $black = imagecolorallocate($im, 0, 0, 0);
-        $grey = imagecolorallocate($im, 200, 200, 200);
-        foreach ($map as $y => $row) {
-            $startY = $y * 100;
-            foreach ($row as $x => $cell) {
-                $startX = $x * 100;
-                $color = imagecolorallocate($im, ...$cell['rgb']);
-                imagefilledrectangle($im, $startX, $startY, $startX + 100, $startY + 100, $color);
-                if ($cell['player']) {
-                    // left
-                    imagettftext($im, 14, 0, $startX + 10, $startY + 55, $this->player['moveName'] === 'left' ? $black : $grey, $path, '<');
-                    // right
-                    imagettftext($im, 14, 0, $startX + 80, $startY + 55, $this->player['moveName'] === 'right' ? $black : $grey, $path, '>');
-                    // up
-                    imagettftext($im, 14, 90, $startX + 58, $startY + 24, $this->player['moveName'] === 'up' ? $black : $grey, $path, '>');
-                    // down
-                    imagettftext($im, 14, -90, $startX + 45, $startY + 80, $this->player['moveName'] === 'down' ? $black : $grey, $path, '>');
-                } elseif ($cell['target']) {
 
-                } else {
-                    imagettftext($im, 14, 0, $startX + 35, $startY + 55, $black, $path, $cell['y'].'x'.$cell['x']);
-                }
-            }
-        }
+        $this->initColors($im);
+        $this->renderMap($im);
+        $this->renderBattle($im);
+
         ob_start();
         imagepng($im);
         $image = ob_get_contents();
@@ -500,11 +484,123 @@ class Game
         return $image;
     }
 
+    public function initColors($im)
+    {
+        $this->imageColors['background'] = $this->imageColors['white'] = imagecolorallocate($im, 255, 255, 255);
+        $this->imageColors['black'] = imagecolorallocate($im, 0, 0, 0);
+        $this->imageColors['grey'] = imagecolorallocate($im, 200, 200, 200);
+    }
+
+    /**
+     * @param $im
+     *
+     * @return void
+     */
+    public function renderMap($im): void
+    {
+        if ($this->battleStatus) {
+            return;
+        }
+        $map = $this->getMap();
+        $path = Storage::disk('public')->path('Arial.ttf');
+        foreach ($map as $y => $row) {
+            $startY = $y * 100;
+            foreach ($row as $x => $cell) {
+                $startX = $x * 100;
+                $color = imagecolorallocate($im, ...$cell['rgb']);
+                imagefilledrectangle($im, $startX, $startY, $startX + 100, $startY + 100, $color);
+                if ($cell['player']) {
+                    // left
+                    imagettftext($im, 14, 0, $startX + 10, $startY + 55, $this->getArrowColorFor('left'), $path, '<');
+                    // right
+                    imagettftext($im, 14, 0, $startX + 80, $startY + 55, $this->getArrowColorFor('right'), $path, '>');
+                    // up
+                    imagettftext($im, 14, 90, $startX + 58, $startY + 24, $this->getArrowColorFor('up'), $path, '>');
+                    // down
+                    imagettftext($im, 14, -90, $startX + 45, $startY + 80, $this->getArrowColorFor('down'), $path, '>');
+                } elseif ($cell['target']) {
+
+                } else {
+                    imagettftext($im, 14, 0, $startX + 35, $startY + 55, $this->imageColors['black'], $path, $cell['y'].'x'.$cell['x']);
+                }
+            }
+        }
+    }
+
+    public function getArrowColorFor(string $position)
+    {
+        return $this->player['moveName'] === $position
+            ? $this->imageColors['black']
+            : $this->imageColors['grey'];
+    }
+
+    /**
+     * @param $im
+     * @return void
+     */
+    public function renderBattle($im): void
+    {
+        if ($this->battleStatus) {
+            $this->renderPLayerFight($im);
+            $this->renderAreaFight($im);
+            $this->renderTargetFight($im);
+        }
+    }
+
+    public function renderPlayerFight($im)
+    {
+        $grey = imagecolorallocate($im, 125, 125, 125);
+        imagerectangle($im, 20, 20, 320, 400, $grey);
+        $this->renderStats($im, $this->player, 40);
+    }
+
+    public function renderAreaFight($im)
+    {
+        $grey = imagecolorallocate($im, 125, 125, 125);
+        imagerectangle($im, 350, 20, 650, 400, $grey);
+        imagefilledrectangle($im, 460, 200, 540, 240, $grey);
+        $path = Storage::disk('public')->path('Arial.ttf');
+        imagettftext($im, 14, 0, 470, 225, $this->imageColors['white'], $path, 'FIGHT');
+    }
+
+    public function renderTargetFight($im)
+    {
+        $grey = imagecolorallocate($im, 125, 125, 125);
+        imagerectangle($im, 680, 20, 980, 400, $grey);
+        $this->renderStats($im, $this->getTargetOnFocus(), 700);
+    }
+
+    public function renderStats($im, $item, $start)
+    {
+        $length = 260;
+        $fullMana = $start + $length;
+        $blue = imagecolorallocatealpha($im, 0, 0, 150, 50);
+        imagefilledrectangle($im, $start, 370, $fullMana, 390, $blue);
+
+        $fullHp = $start + (int) ($length * ($item['health'] / $item['fullHealth']));
+        $red = imagecolorallocatealpha($im, 150, 0, 0, 50);
+        imagefilledrectangle($im, $start, 340, $fullHp, 360, $red);
+    }
+
     /**
      * @return string
      */
     public function base64(): string
     {
         return 'data:image/png;base64, ' . base64_encode($this->render());
+    }
+
+    public function event(int $x, int $y)
+    {
+        $this->log('Get event: '.$x.'x'.$y);
+        if ($this->isFightButton($x, $y)) {
+            $this->log('Event fight');
+            $this->fight();
+        }
+    }
+
+    public function isFightButton($x, $y)
+    {
+        return $this->battleStatus && $x >= 460 && $x <= 540 && $y >= 200 && $y <= 240;
     }
 }

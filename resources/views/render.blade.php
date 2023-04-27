@@ -9,11 +9,15 @@
     </head>
     <body>
         <div>
-            <button onclick="fight">Fight</button>
+            <button onclick="battle()">Fight</button>
+            <button onclick="leave()">Leave</button>
         </div>
-        <img id="frame" width="1000" height="1000" onkeydown="keyDown(event)" tabindex="0">
+        <div style="display: flex;">
+            <img id="frame" width="1000" height="1000" onkeydown="keyDown(event)" tabindex="0" onclick="setEvent(event)">
+            <div id="logs" style="display: inline-block; width: 398px; height: 998px; border: 1px solid black; overflow-y: auto;"></div>
+        </div>
         <script>
-            /*
+            var userId = {{ $userId }};
             window.Echo = new Echo({
                 broadcaster: 'pusher',
                 key: 'test',
@@ -24,13 +28,16 @@
                 forceTLS: false,
                 enabledTransports: ['ws', 'wss'],
             });
-            Echo.channel('test-1')
+            Echo.channel(`test-${userId}`)
                 .listen('TestEvent', (e) => {
+                    const newDiv = document.createElement('div');
+                    const content = document.createTextNode(`[${e.time}]: ${e.message}`);
+                    newDiv.appendChild(content);
+                    document.querySelector('#logs').prepend(newDiv);
                     if (e.img) {
                         setImg(e.img);
                     }
                 });
-             */
             function setImg(img) {
                 document.querySelector('#frame').setAttribute('src', img);
             }
@@ -57,8 +64,18 @@
                     step: step,
                 }).then((response) => setImg(response.data));
             }
-            function fight() {
-                axios.post('window/fight?render')
+            function battle() {
+                axios.post('window/battle?render')
+                    .then((response) => setImg(response.data));
+            }
+            function setEvent(event) {
+                axios.post('render/click?render', {
+                    x: event.clientX - 10,
+                    y: event.clientY - 30,
+                }).then((response) => setImg(response.data));
+            }
+            function leave() {
+                axios.post('window/leave-battle?render')
                     .then((response) => setImg(response.data));
             }
         </script>

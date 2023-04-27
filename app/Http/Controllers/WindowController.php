@@ -34,6 +34,7 @@ class WindowController extends Controller
             'rand' => rand(1, 9),
             'render' => false,
             'img' => null,
+            'user_id' => $request->user()->id,
         ]);
     }
 
@@ -49,24 +50,22 @@ class WindowController extends Controller
         }
     }
 
-    /**
-     * @param Request $request
-     *
-     * @return void
-     */
-    public function battle(Request $request): void
+    public function battle(Request $request)
     {
         $this->game->user($request->user());
         $this->game->battle();
+        if ($request->has('render')) {
+            return response($this->game->base64());
+        }
     }
 
-    /**
-     * @return void
-     */
-    public function leaveBattle(Request $request): void
+    public function leaveBattle(Request $request)
     {
         $this->game->user($request->user());
         $this->game->leaveBattle();
+        if ($request->has('render')) {
+            return response($this->game->base64());
+        }
     }
 
     public function fight(Request $request)
@@ -82,6 +81,15 @@ class WindowController extends Controller
     {
         $this->game->user($request->user());
 
-        return view('render');
+        return view('render', ['userId' => $request->user()->id]);
+    }
+
+    public function click(Request $request)
+    {
+        $this->game->user($request->user());
+        $this->game->event(...$request->only(['x', 'y']));
+        if ($request->has('render')) {
+            return response($this->game->base64());
+        }
     }
 }
