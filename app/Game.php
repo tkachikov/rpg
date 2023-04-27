@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 namespace App;
 
-use App\Events\TestEvent;
-use App\Models\User;
 use GdImage;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use App\Events\TestEvent;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class Game
@@ -38,9 +38,34 @@ class Game
 
     public bool $battleStatus;
 
+    public int $mapSize;
+
+    public int $targetsSize;
+
+    public float $maxTargets = 0.2;
+
+    public array $keysCache = [
+        'battle-status',
+        'targets-size',
+        'map-size',
+        'player',
+        'targets',
+        'map',
+    ];
+
+    public array $locks = [];
+
     public function __destruct()
     {
-        $this->destroy();
+        if (isset($this->user)) {
+            foreach ($this->keysCache as $key) {
+                $keyValue = str($key)->camel()->toString();
+                if (isset($this->$keyValue)) {
+                    cache()->set($this->getKeyCache($key), $this->$keyValue);
+                    $this->locks[$key]->release();
+                }
+            }
+        }
     }
 
     /**
@@ -50,42 +75,38 @@ class Game
      */
     public function init(): void
     {
-        $this->initPlayer();
-        $this->initTargets();
-        $this->initMap();
-        $this->battleStatus = cache()->get($this->getKeyCache('battle-status')) ?? false;
-    }
-
-    /**
-     * @return void
-     * @throws mixed
-     */
-    public function destroy(): void
-    {
-        if (isset($this->user)) {
-            cache()->set($this->getKeyCache('player'), $this->player);
-            cache()->set($this->getKeyCache('targets'), $this->targets);
-            cache()->set($this->getKeyCache('map'), $this->map);
-            cache()->set($this->getKeyCache('battle-status'), $this->battleStatus);
+        foreach ($this->keysCache as $key) {
+            $this->locks[$key] = Cache::lock($this->getKeyCache($key).'-lock', 1);
+            try {
+                $this->locks[$key]->block(1);
+                $method = 'init'.str($key)->studly()->toString();
+                $this->{$method}();
+            } catch (\Throwable) {}
         }
     }
 
     public function refresh()
     {
         if (isset($this->user)) {
-            cache()->delete($this->getKeyCache('player'));
-            cache()->delete($this->getKeyCache('targets'));
-            cache()->delete($this->getKeyCache('map'));
-            cache()->delete($this->getKeyCache('battle-status'));
+            foreach ($this->keysCache as $key) {
+                cache()->delete($this->getKeyCache($key));
+            }
         }
     }
 
-    public function user(?User $user = null)
+    /**
+     * @param User|null $user
+     *
+     * @return $this
+     */
+    public function user(?User $user = null): self
     {
         if ($user) {
             $this->user = $user;
             $this->init();
         }
+
+        return $this;
     }
 
     /**
@@ -103,8 +124,28 @@ class Game
      */
     public function run(): void
     {
-        //$this->moveTargets();
-        $this->log('Frame', $this->base64());
+        $this->moveTargets();
+        $this->bornTargets();
+    }
+
+    public function sendFrame()
+    {
+        $this->log('new frame', $this->base64());
+    }
+
+    public function initBattleStatus()
+    {
+        $this->battleStatus = cache()->get($this->getKeyCache('battle-status')) ?? false;
+    }
+
+    public function initTargetsSize()
+    {
+        $this->targetsSize = cache()->get($this->getKeyCache('targets-size')) ?? 0;
+    }
+
+    public function initMapSize()
+    {
+        $this->mapSize = cache()->get($this->getKeyCache('map-size')) ?? 0;
     }
 
     /**
@@ -132,6 +173,7 @@ class Game
             'color' => 'bg-slate-200',
             'rgb' => $this->colors['bg-slate-200'],
             'name' => $this->user->name ?? 'Player',
+            'inBattle' => false,
             //'rgb' => [rand(0, 255), rand(0, 255), rand(0, 255)],
         ];
     }
@@ -159,21 +201,39 @@ class Game
                     break;
                 }
             }
-            $this->targets[$y][$x] = [
-                'x' => $x,
-                'y' => $y,
-                'health' => $health = rand(15, 30),
-                'fullHealth' => $health,
-                'attack' => $attack = (bool) rand(0, 1),
-                'color' => $color = $attack ? 'bg-red-400' : 'bg-green-400',
-                'rgb' => $this->colors[$color],
-                'name' => 'Wood',
-                'damage' => [
-                    'min' => $min = rand(1, 3),
-                    'max' => rand($min + 1, $min + 3),
-                ],
-            ];
+            $this->targets[$y][$x] = $this->newTarget($x, $y);
         }
+    }
+
+    public function newTarget(?int $x = null, ?int $y = null)
+    {
+        if (!$x || !$y) {
+            $keysY = array_keys($this->map);
+            do {
+                $y = rand(min($keysY), max($keysY));
+                $keysX = array_keys($this->map[$y]);
+                $x = rand(min($keysX), max($keysX));
+            } while ($this->herePlayer($y, $x) || $this->hereTarget($y, $x));
+        }
+        $this->targetsSize++;
+        $this->log("Born target: {$x}x$y");
+
+        return [
+            'x' => $x,
+            'y' => $y,
+            'health' => $health = rand(15, 30),
+            'fullHealth' => $health,
+            'attack' => $attack = (bool) rand(0, 1),
+            'color' => $color = $attack ? 'bg-red-400' : 'bg-green-400',
+            'rgb' => $this->colors[$color],
+            'name' => 'Wood',
+            'damage' => [
+                'min' => $min = rand(1, 3),
+                'max' => rand($min + 1, $min + 3),
+            ],
+            'inBattle' => false,
+            'canMove' => (bool) rand(0, 1),
+        ];
     }
 
     /**
@@ -236,6 +296,8 @@ class Game
      */
     public function newCell(int $y, int $x): array
     {
+        $this->mapSize++;
+
         return [
             'x' => $x,
             'y' => $y,
@@ -329,7 +391,7 @@ class Game
      */
     public function playerCanMove(array $nextCell): bool
     {
-        return !$this->hereTarget($nextCell['y'], $nextCell['x']);
+        return !$this->player['inBattle'] && !$this->hereTarget($nextCell['y'], $nextCell['x']);
     }
 
     /**
@@ -339,7 +401,7 @@ class Game
      */
     public function log(string $message, ?string $img = null): void
     {
-        event(new TestEvent($this->user, $message, $img));
+        event(new TestEvent($this->user ?? User::first(), $message, $img));
     }
 
     /**
@@ -371,6 +433,10 @@ class Game
     {
         $targetOnFocus = $this->getTargetOnFocus();
         $this->battleStatus = (bool) $targetOnFocus;
+        if ($this->battleStatus) {
+            $this->targets[$targetOnFocus['y']][$targetOnFocus['x']]['inBattle'] = true;
+            $this->player['inBattle'] = true;
+        }
         $this->log("Battle: " . (int) $this->battleStatus);
     }
 
@@ -424,6 +490,7 @@ class Game
         if ($target['health'] < 1) {
             unset($this->targets[$target['y']][$target['x']]);
             $this->battleStatus = false;
+            $this->player['inBattle'] = false;
             $this->log('target die...');
         } elseif ($target['attack']) {
             $targetDamage = $this->getDamage($target);
@@ -466,16 +533,17 @@ class Game
         $removed = $moveTargets = [];
         foreach ($this->targets as $y => $line) {
             foreach ($line as $x => $target) {
-                if (rand(0, 10) < 5) {
-                    $coords = $keys[rand(0, count($keys) - 1)];
-                    $y = $target['y'] + $coords[0];
-                    $x = $target['x'] + $coords[1];
-                    if (!$this->hereTarget($y, $x)) {
-                        $removed[] = [$target['y'], $target['x']];
-                        $target['y'] = $y;
-                        $target['x'] = $x;
-                        $moveTargets[] = $target;
-                    }
+                if (!$target['canMove'] || $target['inBattle'] || rand(0, 10) < 5) {
+                    continue;
+                }
+                $coords = $keys[rand(0, count($keys) - 1)];
+                $y = $target['y'] + $coords[0];
+                $x = $target['x'] + $coords[1];
+                if (!$this->hereTarget($y, $x) && !$this->herePlayer($y, $x)) {
+                    $removed[] = [$target['y'], $target['x']];
+                    $target['y'] = $y;
+                    $target['x'] = $x;
+                    $moveTargets[] = $target;
                 }
             }
         }
@@ -485,7 +553,22 @@ class Game
         foreach ($moveTargets as $target) {
             $this->targets[$target['y']][$target['x']] = $target;
         }
-        cache()->set('targets', $this->targets);
+    }
+
+    public function bornTargets()
+    {
+        $targetsPercent = $this->targetsSize / $this->mapSize;
+        $this->log("Count map: " . $this->mapSize . ", count targets: " . $this->targetsSize . ', targets miss percent: ' . $targetsPercent);
+        if ($targetsPercent < $this->maxTargets) {
+            $diff = (int) (($this->maxTargets - $targetsPercent) * $this->mapSize * 0.5);
+            $this->log('Diff: ' . $diff);
+            $count = rand(1, $diff);
+            $this->log('Creating new targets: ' . $count);
+            for ($i = 0; $i < $count; $i++) {
+                $newTarget = $this->newTarget();
+                $this->targets[$newTarget['y']][$newTarget['x']] = $newTarget;
+            }
+        }
     }
 
     /**
@@ -549,7 +632,9 @@ class Game
                     // down
                     imagettftext($this->image, 14, -90, $startX + 45, $startY + 80, $this->getArrowColorFor('down'), $this->fonts['arial'], '>');
                 } elseif ($cell['target']) {
-
+                    if (!$cell['targetItem']['canMove']) {
+                        imagettftext($this->image, 14, 0, $startX + 35, $startY + 50, $this->imageColors['black'], $this->fonts['arial'], 'zzZ');
+                    }
                 } else {
                     imagettftext($this->image, 14, 0, $startX + 35, $startY + 55, $this->imageColors['black'], $this->fonts['arial'], $cell['y'].'x'.$cell['x']);
                 }

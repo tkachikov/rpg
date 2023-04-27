@@ -6,14 +6,14 @@ use App\Game;
 use App\Models\User;
 use Illuminate\Console\Command;
 
-class GameLoop extends Command
+class GameSendFrame extends Command
 {
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'app:game-loop';
+    protected $signature = 'app:game-send-frame';
 
     /**
      * The console command description.
@@ -29,10 +29,12 @@ class GameLoop extends Command
     {
         $users = User::get();
         while (true) {
+            $start = microtime(true);
             foreach ($users as $user) {
-                app(Game::class)->user($user)->run();
+                app(Game::class)->user($user)->sendFrame();
             }
-            sleep(1);
+            dump(microtime(true) - $start);
+            usleep(100000);
         }
     }
 }

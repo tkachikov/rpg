@@ -14,6 +14,7 @@
         </div>
         <script>
             var userId = {{ $userId }};
+            var withRender = 'render';
             window.Echo = new Echo({
                 broadcaster: 'pusher',
                 key: 'test',
@@ -57,28 +58,48 @@
                 }
             }
             async function move(position, step) {
-                axios.post('window/move?render', {
+                axios.post('window/move?'+withRender, {
                     position: position,
                     step: step,
-                }).then((response) => setImg(response.data));
+                }).then(function (response) {
+                        if (withRender) {
+                            setImg(response.data);
+                        }
+                    });;
             }
             function battle() {
-                axios.post('window/battle?render')
-                    .then((response) => setImg(response.data));
+                axios.post('window/battle?'+withRender)
+                    .then(function (response) {
+                        if (withRender) {
+                            setImg(response.data);
+                        }
+                    });;
             }
             function setEvent(event) {
-                axios.post('render/click?render', {
+                axios.post('render/click?'+withRender, {
                     x: event.clientX - 10,
                     y: event.clientY - 30,
-                }).then((response) => setImg(response.data));
+                }).then(function (response) {
+                        if (withRender) {
+                            setImg(response.data);
+                        }
+                    });
             }
             function leave() {
-                axios.post('window/leave-battle?render')
-                    .then((response) => setImg(response.data));
+                axios.post('window/leave-battle?'+withRender)
+                    .then(function (response) {
+                        if (withRender) {
+                            setImg(response.data);
+                        }
+                    });
             }
             function keyEvent(code) {
-                axios.post('render/event?render', {code: code})
-                    .then((response) => setImg(response.data));
+                axios.post('render/event?'+withRender, {code: code})
+                    .then(function (response) {
+                        if (withRender) {
+                            setImg(response.data);
+                        }
+                    });
             }
         </script>
     </body>
