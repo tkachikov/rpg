@@ -131,6 +131,7 @@ class Game
             ],
             'color' => 'bg-slate-200',
             'rgb' => $this->colors['bg-slate-200'],
+            'name' => $this->user->name ?? 'Player',
             //'rgb' => [rand(0, 255), rand(0, 255), rand(0, 255)],
         ];
     }
@@ -166,6 +167,7 @@ class Game
                 'attack' => $attack = (bool) rand(0, 1),
                 'color' => $color = $attack ? 'bg-red-400' : 'bg-green-400',
                 'rgb' => $this->colors[$color],
+                'name' => 'Wood',
                 'damage' => [
                     'min' => $min = rand(1, 3),
                     'max' => rand($min + 1, $min + 3),
@@ -337,7 +339,7 @@ class Game
      */
     public function log(string $message, ?string $img = null): void
     {
-        event(new TestEvent(User::first(), $message, $img));
+        event(new TestEvent($this->user, $message, $img));
     }
 
     /**
@@ -595,7 +597,7 @@ class Game
 
     public function renderStats($item, $start)
     {
-        imagettftext($this->image, 14, 0, 40, 50, $this->imageColors['grey'], $this->fonts['arial'], 'Player');
+        imagettftext($this->image, 14, 0, $start, 50, $this->imageColors['grey'], $this->fonts['arial'], $item['name']);
 
         $length = 260;
         $fullMana = $start + $length;
@@ -625,5 +627,20 @@ class Game
     public function isFightButton($x, $y)
     {
         return $this->battleStatus && $x >= 460 && $x <= 540 && $y >= 200 && $y <= 240;
+    }
+
+    public function keyEvent(string $code)
+    {
+        if ($code === 'Space') {
+            if ($this->battleStatus) {
+                $this->event(460, 200);
+            } else {
+                $this->battle();
+            }
+        } elseif ($code === 'Backspace') {
+            if ($this->battleStatus) {
+                $this->leaveBattle();
+            }
+        }
     }
 }

@@ -56,6 +56,7 @@ Route::name('render.')
     ->group(function () {
         Route::get('', 'render')->name('index');
         Route::post('click', 'click')->name('click');
+        Route::post('event', 'event')->name('event');
     });
 
 require __DIR__.'/auth.php';

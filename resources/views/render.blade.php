@@ -8,10 +8,6 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.15.1/echo.iife.min.js"></script>
     </head>
     <body>
-        <div>
-            <button onclick="battle()">Fight</button>
-            <button onclick="leave()">Leave</button>
-        </div>
         <div style="display: flex;">
             <img id="frame" width="1000" height="1000" onkeydown="keyDown(event)" tabindex="0" onclick="setEvent(event)">
             <div id="logs" style="display: inline-block; width: 398px; height: 998px; border: 1px solid black; overflow-y: auto;"></div>
@@ -56,6 +52,8 @@
                     case 'ArrowRight':
                         move('x', 1);
                         break;
+                    default:
+                        keyEvent(event.code);
                 }
             }
             async function move(position, step) {
@@ -76,6 +74,10 @@
             }
             function leave() {
                 axios.post('window/leave-battle?render')
+                    .then((response) => setImg(response.data));
+            }
+            function keyEvent(code) {
+                axios.post('render/event?render', {code: code})
                     .then((response) => setImg(response.data));
             }
         </script>

@@ -92,4 +92,13 @@ class WindowController extends Controller
             return response($this->game->base64());
         }
     }
+
+    public function event(Request $request)
+    {
+        $this->game->user($request->user());
+        $this->game->keyEvent($request->get('code'));
+        if ($request->has('render')) {
+            return response($this->game->base64());
+        }
+    }
 }
