@@ -8,6 +8,9 @@ use App\Models\User;
 use App\Events\TestEvent;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
+use Psr\SimpleCache\InvalidArgumentException;
 
 class Game
 {
@@ -42,7 +45,7 @@ class Game
 
     public int $targetsSize;
 
-    public float $maxTargets = 0.2;
+    public float $maxTargets = 0.1;
 
     public array $keysCache = [
         'battle-status',
@@ -55,17 +58,74 @@ class Game
 
     public array $locks = [];
 
+    public function __construct(
+        public Action $action,
+    ){
+    }
+
     public function __destruct()
     {
         if (isset($this->user)) {
             foreach ($this->keysCache as $key) {
                 $keyValue = str($key)->camel()->toString();
                 if (isset($this->$keyValue)) {
-                    cache()->set($this->getKeyCache($key), $this->$keyValue);
-                    $this->locks[$key]->release();
+                    $this->setData($key, $this->$keyValue);
+                    //$this->locks[$key]->release();
                 }
             }
         }
+    }
+
+    /**
+     * @param string $key
+     * @return mixed
+     * @throws ContainerExceptionInterface
+     * @throws NotFoundExceptionInterface
+     */
+    public function getData(string $key): mixed
+    {
+        return json_decode(cache()->get($this->getKeyCache($key)) ?? 'null', true);
+    }
+
+    /**
+     * @param string $key
+     * @param mixed $data
+     * @return void
+     * @throws InvalidArgumentException
+     */
+    public function setData(string $key, mixed $data): void
+    {
+        cache()->set($this->getKeyCache($key), json_encode($data));
+    }
+
+    /**
+     * @param string $key
+     * @return void
+     * @throws InvalidArgumentException
+     */
+    public function deleteData(string $key): void
+    {
+        cache()->delete($this->getKeyCache($key));
+    }
+
+    /**
+     * @return void
+     * @throws InvalidArgumentException
+     */
+    public function saveData(): void
+    {
+        foreach ($this->keysCache as $key) {
+            $this->setData($key, $this->{str($key)->camel()->toString()});
+        }
+    }
+
+    /**
+     * @param string $key
+     * @return bool
+     */
+    public function hasData(string $key): bool
+    {
+        return cache()->has($this->getKeyCache($key));
     }
 
     /**
@@ -76,12 +136,14 @@ class Game
     public function init(): void
     {
         foreach ($this->keysCache as $key) {
-            $this->locks[$key] = Cache::lock($this->getKeyCache($key).'-lock', 1);
+            //$this->locks[$key] = Cache::lock($this->getKeyCache($key).'-lock', 1);
             try {
-                $this->locks[$key]->block(1);
+                //$this->locks[$key]->block(1);
                 $method = 'init'.str($key)->studly()->toString();
                 $this->{$method}();
-            } catch (\Throwable) {}
+            } catch (\Throwable $e) {
+                dd($e);
+            }
         }
     }
 
@@ -89,7 +151,7 @@ class Game
     {
         if (isset($this->user)) {
             foreach ($this->keysCache as $key) {
-                cache()->delete($this->getKeyCache($key));
+                $this->deleteData($key);
             }
         }
     }
@@ -103,6 +165,7 @@ class Game
     {
         if ($user) {
             $this->user = $user;
+            $this->action->user($this->user);
             $this->init();
         }
 
@@ -121,11 +184,26 @@ class Game
 
     /**
      * @return void
+     * @throws InvalidArgumentException
      */
     public function run(): void
     {
+        $this->actions();
         $this->moveTargets();
         $this->bornTargets();
+        $this->saveData();
+        $this->sendFrame();
+    }
+
+    /**
+     * @return void
+     */
+    public function actions(): void
+    {
+        $actions = app(Action::class)->user($this->user)->getAndFlush();
+        foreach ($actions as $method => $params) {
+            $this->{$method}(...$params);
+        }
     }
 
     public function sendFrame()
@@ -135,17 +213,17 @@ class Game
 
     public function initBattleStatus()
     {
-        $this->battleStatus = cache()->get($this->getKeyCache('battle-status')) ?? false;
+        $this->battleStatus = $this->getData('battle-status') ?? false;
     }
 
     public function initTargetsSize()
     {
-        $this->targetsSize = cache()->get($this->getKeyCache('targets-size')) ?? 0;
+        $this->targetsSize = $this->getData('targets-size') ?? 0;
     }
 
     public function initMapSize()
     {
-        $this->mapSize = cache()->get($this->getKeyCache('map-size')) ?? 0;
+        $this->mapSize = $this->getData('map-size') ?? 0;
     }
 
     /**
@@ -155,12 +233,17 @@ class Game
      */
     public function initPlayer(): void
     {
-        $key = $this->getKeyCache('player');
-        if (cache()->has($key)) {
-            $this->player = cache()->get($key);
-            return;
-        }
-        $this->player = [
+        $this->player = $this->hasData('player')
+            ? $this->getData('player')
+            : $this->newPLayer();
+    }
+
+    /**
+     * @return int[]
+     */
+    public function newPLayer(): array
+    {
+        return [
             'x' => 5,
             'y' => 5,
             'health' => 50,
@@ -185,9 +268,8 @@ class Game
      */
     public function initTargets(): void
     {
-        $key = $this->getKeyCache('targets');
-        if (cache()->has($key)) {
-            $this->targets = cache()->get($key);
+        if ($this->hasData('targets')) {
+            $this->targets = $this->getData('targets');
             return;
         }
         for ($i = 0; $i < rand(4, 15); $i++) {
@@ -243,9 +325,8 @@ class Game
      */
     public function initMap(): void
     {
-        $key = $this->getKeyCache('map');
-        if (cache()->has($key)) {
-            $this->map = cache()->get($key);
+        if ($this->hasData('map')) {
+            $this->map = $this->getData('map');
             return;
         }
         for ($y = $this->player['y'] - 5; $y < $this->player['y'] + 5; $y++) {
@@ -401,7 +482,9 @@ class Game
      */
     public function log(string $message, ?string $img = null): void
     {
-        event(new TestEvent($this->user ?? User::first(), $message, $img));
+        if ($img) {
+            event(new TestEvent($this->user ?? User::first(), $message, $img));
+        }
     }
 
     /**

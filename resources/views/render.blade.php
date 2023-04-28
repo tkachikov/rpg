@@ -14,7 +14,7 @@
         </div>
         <script>
             var userId = {{ $userId }};
-            var withRender = 'render';
+            var withRender = '';
             window.Echo = new Echo({
                 broadcaster: 'pusher',
                 key: 'test',

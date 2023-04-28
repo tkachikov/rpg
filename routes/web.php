@@ -18,6 +18,10 @@ use App\Http\Controllers\ProfileController;
 |
 */
 
+Route::get('test', function () {
+    return response(app(\App\Game::class)->user(\Illuminate\Support\Facades\Auth::user())->render())->header('Content-Type', 'image/png');
+});
+
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),

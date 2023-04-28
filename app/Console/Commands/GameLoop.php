@@ -27,12 +27,12 @@ class GameLoop extends Command
      */
     public function handle()
     {
-        $users = User::get();
+        $services = User::get()->map(fn ($user) => app(Game::class)->user($user));
         while (true) {
-            foreach ($users as $user) {
-                app(Game::class)->user($user)->run();
+            foreach ($services as $service) {
+                $service->run();
             }
-            sleep(1);
+            usleep(10000);
         }
     }
 }

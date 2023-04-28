@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Action;
 use App\Game;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\Request;
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 class WindowController extends Controller
 {
     public function __construct(
-        public Game $game,
+        //public Game $game,
     ) {
     }
 
@@ -43,8 +43,13 @@ class WindowController extends Controller
      */
     public function move(Request $request)
     {
+        /*
         $this->game->user($request->user());
         $this->game->movePlayer(...$request->only(['position', 'step']));
+        */
+        app(Action::class)
+            ->user($request->user())
+            ->save('movePlayer', $request->only(['position', 'step']));
         if ($request->has('render')) {
             return response($this->game->base64());
         }
@@ -79,7 +84,7 @@ class WindowController extends Controller
 
     public function render(Request $request)
     {
-        $this->game->user($request->user());
+        app(Game::class)->user($request->user())->render();
 
         return view('render', ['userId' => $request->user()->id]);
     }
