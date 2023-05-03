@@ -58,9 +58,12 @@ class Game
 
     public array $locks = [];
 
+    public int $lastMove;
+
     public function __construct(
         public Action $action,
     ){
+        $this->lastMove = time();
     }
 
     public function __destruct()
@@ -188,11 +191,16 @@ class Game
      */
     public function run(): void
     {
+        $start = microtime(true);
+        $now = time();
         $this->actions();
-        $this->moveTargets();
-        $this->bornTargets();
+        if ($this->lastMove + 1 <= $now) {
+            $this->moveTargets();
+            $this->bornTargets();
+        }
         $this->saveData();
-        $this->sendFrame();
+        $this->sendFrame($start);
+        $this->lastMove = $now;
     }
 
     /**
@@ -206,9 +214,9 @@ class Game
         }
     }
 
-    public function sendFrame()
+    public function sendFrame(float $start)
     {
-        $this->log('new frame', $this->base64());
+        $this->log('new frame', $this->base64(), $start);
     }
 
     public function initBattleStatus()
@@ -480,10 +488,10 @@ class Game
      *
      * @return void
      */
-    public function log(string $message, ?string $img = null): void
+    public function log(string $message, ?string $img = null, ?float $start = null): void
     {
         if ($img) {
-            event(new TestEvent($this->user ?? User::first(), $message, $img));
+            event(new TestEvent($this->user ?? User::first(), $message, $img, $start));
         }
     }
 

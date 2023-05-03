@@ -10,9 +10,14 @@
     <body>
         <div style="display: flex;">
             <img id="frame" width="1000" height="1000" onkeydown="keyDown(event)" tabindex="0" onclick="setEvent(event)">
-            <div id="logs" style="display: inline-block; width: 398px; height: 998px; border: 1px solid black; overflow-y: auto;"></div>
+            <div style="display: inline-block; width: 398px; height: 998px; border: 1px solid black; overflow-y: auto;">
+                <div id="fps"></div>
+                <div id="logs"></div>
+            </div>
         </div>
         <script>
+            var timeRoute = [];
+            var exec = [];
             var userId = {{ $userId }};
             var withRender = '';
             window.Echo = new Echo({
@@ -34,6 +39,8 @@
                     if (e.img) {
                         setImg(e.img);
                     }
+                    timeRoute.push(Math.round(+new Date() - e.microtime));
+                    exec.push(e.exec);
                 });
             function setImg(img) {
                 document.querySelector('#frame').setAttribute('src', img);
@@ -65,7 +72,7 @@
                         if (withRender) {
                             setImg(response.data);
                         }
-                    });;
+                    });
             }
             function battle() {
                 axios.post('window/battle?'+withRender)
@@ -73,7 +80,7 @@
                         if (withRender) {
                             setImg(response.data);
                         }
-                    });;
+                    });
             }
             function setEvent(event) {
                 axios.post('render/click?'+withRender, {
@@ -101,6 +108,19 @@
                         }
                     });
             }
+            function getAvg(items) {
+                if (!items.length) {
+                    return 0;
+                }
+                let avg = 0;
+                for (let i = 0; i < items.length; i++) {
+                    avg += items[i];
+                }
+                return Math.round(avg / items.length);
+            }
+            setInterval(function () {
+                document.querySelector('#fps').textContent = 'timeRoute: ' + getAvg(timeRoute) + 'ms, exec: ' + getAvg(exec) + ' ms';
+            }, 1000)
         </script>
     </body>
 </html>

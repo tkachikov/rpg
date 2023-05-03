@@ -23,6 +23,7 @@ class TestEvent implements ShouldBroadcast
         private readonly User   $user,
         private readonly string $message = 'test',
         private readonly ?string $img = null,
+        private readonly ?float $start = null,
     ) {
     }
 
@@ -43,6 +44,8 @@ class TestEvent implements ShouldBroadcast
         return [
             'uuid' => Str::uuid(),
             'time' => now()->format('H:i:s.u'),
+            'microtime' => $now = (int) (microtime(true) * 1000),
+            'exec' => $now - (int) ($this->start * 1000),
             'message' => $this->message,
             'render' => (bool) $this->img,
             'img' => $this->img,
