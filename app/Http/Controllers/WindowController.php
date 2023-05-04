@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use App\Action;
 use App\Game;
+use App\Players;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Http\Request;
@@ -23,6 +24,8 @@ class WindowController extends Controller
      */
     public function index(Request $request): Response
     {
+        $players = Players::get();
+        dd('test', $players, Players::$users);
         $this->game->user($request->user());
 
         return Inertia::render('Window/Index', [
@@ -43,43 +46,9 @@ class WindowController extends Controller
      */
     public function move(Request $request)
     {
-        /*
-        $this->game->user($request->user());
-        $this->game->movePlayer(...$request->only(['position', 'step']));
-        */
         app(Action::class)
             ->user($request->user())
             ->save('movePlayer', $request->only(['position', 'step']));
-        if ($request->has('render')) {
-            return response($this->game->base64());
-        }
-    }
-
-    public function battle(Request $request)
-    {
-        $this->game->user($request->user());
-        $this->game->battle();
-        if ($request->has('render')) {
-            return response($this->game->base64());
-        }
-    }
-
-    public function leaveBattle(Request $request)
-    {
-        $this->game->user($request->user());
-        $this->game->leaveBattle();
-        if ($request->has('render')) {
-            return response($this->game->base64());
-        }
-    }
-
-    public function fight(Request $request)
-    {
-        $this->game->user($request->user());
-        $this->game->fight();
-        if ($request->has('render')) {
-            return response($this->game->base64());
-        }
     }
 
     public function render(Request $request)
@@ -91,19 +60,15 @@ class WindowController extends Controller
 
     public function click(Request $request)
     {
-        $this->game->user($request->user());
-        $this->game->event(...$request->only(['x', 'y']));
-        if ($request->has('render')) {
-            return response($this->game->base64());
-        }
+        app(Action::class)
+            ->user($request->user())
+            ->save('event', $request->only(['x', 'y']));
     }
 
     public function event(Request $request)
     {
-        $this->game->user($request->user());
-        $this->game->keyEvent($request->get('code'));
-        if ($request->has('render')) {
-            return response($this->game->base64());
-        }
+        app(Action::class)
+            ->user($request->user())
+            ->save('keyEvent', $request->only(['code']));
     }
 }

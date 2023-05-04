@@ -13,7 +13,7 @@ class GameLoop extends Command
      *
      * @var string
      */
-    protected $signature = 'app:game-loop';
+    protected $signature = 'app:game-loop {--user=}';
 
     /**
      * The console command description.
@@ -27,12 +27,12 @@ class GameLoop extends Command
      */
     public function handle()
     {
-        $services = User::get()->map(fn ($user) => app(Game::class)->user($user));
+        $service = app(Game::class)->user(User::find($this->option('user')));
         while (true) {
-            foreach ($services as $service) {
-                $service->run();
-            }
-            usleep(10000);
+            $start = microtime(true);
+            $service->run();
+            dump(microtime(true) - $start);
+            usleep(1000);
         }
     }
 }

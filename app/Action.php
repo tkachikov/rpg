@@ -33,7 +33,7 @@ class Action
      * @throws InvalidArgumentException
      * @throws NotFoundExceptionInterface
      */
-    public function save(string $method, array $params): void
+    public function save(string $method, array $params = []): void
     {
         $actions = $this->get();
         $actions[$method] = $params;

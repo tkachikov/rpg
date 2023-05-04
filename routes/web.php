@@ -47,10 +47,6 @@ Route::name('window.')
     ->controller(WindowController::class)
     ->group(function () {
         Route::get('', 'index')->name('index');
-        Route::post('move', 'move')->name('move');
-        Route::post('battle', 'battle')->name('battle');
-        Route::post('leave-battle', 'leaveBattle')->name('leaveBattle');
-        Route::post('fight', 'fight')->name('fight');
     });
 
 Route::name('render.')
@@ -59,6 +55,7 @@ Route::name('render.')
     ->controller(WindowController::class)
     ->group(function () {
         Route::get('', 'render')->name('index');
+        Route::post('move', 'move')->name('move');
         Route::post('click', 'click')->name('click');
         Route::post('event', 'event')->name('event');
     });

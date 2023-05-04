@@ -22,7 +22,7 @@ class TestEvent implements ShouldBroadcast
     public function __construct(
         private readonly User   $user,
         private readonly string $message = 'test',
-        private readonly ?string $img = null,
+        private readonly null|array|string $img = null,
         private readonly ?float $start = null,
     ) {
     }
@@ -48,7 +48,9 @@ class TestEvent implements ShouldBroadcast
             'exec' => $now - (int) ($this->start * 1000),
             'message' => $this->message,
             'render' => (bool) $this->img,
-            'img' => $this->img,
+            'img' => is_string($this->img) && $this->img
+                ? [$this->img]
+                : $this->img,
         ];
     }
 }

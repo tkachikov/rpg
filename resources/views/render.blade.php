@@ -20,11 +20,12 @@
             var exec = [];
             var userId = {{ $userId }};
             var withRender = '';
+            var frames = [];
             window.Echo = new Echo({
                 broadcaster: 'pusher',
                 key: 'test',
                 cluster: 'mt1',
-                wsHost: 'localhost',
+                wsHost: '192.168.88.48',
                 wsPort: 6001,
                 wssPort: 6001,
                 forceTLS: false,
@@ -36,11 +37,20 @@
                     const content = document.createTextNode(`[${e.time}]: ${e.message}`);
                     newDiv.appendChild(content);
                     document.querySelector('#logs').prepend(newDiv);
-                    if (e.img) {
-                        setImg(e.img);
+                    if (e.img.length) {
+                        /*
+                        for (let i = 0; i < e.img.length; i++) {
+                            frames.push(e.img[i]);
+                        }
+                         */
+                        setImg(e.img[0]);
                     }
-                    timeRoute.push(Math.round(+new Date() - e.microtime));
-                    exec.push(e.exec);
+                    if (e.microtime) {
+                        timeRoute.push(Math.round(+new Date() - e.microtime));
+                    }
+                    if (e.exec) {
+                        exec.push(e.exec);
+                    }
                 });
             function setImg(img) {
                 document.querySelector('#frame').setAttribute('src', img);
@@ -65,7 +75,7 @@
                 }
             }
             async function move(position, step) {
-                axios.post('window/move?'+withRender, {
+                axios.post('render/move?'+withRender, {
                     position: position,
                     step: step,
                 }).then(function (response) {
@@ -121,6 +131,13 @@
             setInterval(function () {
                 document.querySelector('#fps').textContent = 'timeRoute: ' + getAvg(timeRoute) + 'ms, exec: ' + getAvg(exec) + ' ms';
             }, 1000)
+            /*
+            setInterval(function () {
+                if (frames.length) {
+                    setImg(frames.shift());
+                }
+            }, 100)
+             */
         </script>
     </body>
 </html>

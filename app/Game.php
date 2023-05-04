@@ -6,7 +6,6 @@ namespace App;
 use GdImage;
 use App\Models\User;
 use App\Events\TestEvent;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -59,6 +58,8 @@ class Game
     public array $locks = [];
 
     public int $lastMove;
+
+    public array $frames = [];
 
     public function __construct(
         public Action $action,
@@ -254,6 +255,8 @@ class Game
         return [
             'x' => 5,
             'y' => 5,
+            'oldX' => 5,
+            'oldY' => 5,
             'health' => 50,
             'fullHealth' => 50,
             'moveName' => null,
@@ -262,11 +265,23 @@ class Game
                 'max' => rand($min + 1, $min + 3),
             ],
             'color' => 'bg-slate-200',
-            'rgb' => $this->colors['bg-slate-200'],
+            //'rgb' => $this->colors['bg-slate-200'],
             'name' => $this->user->name ?? 'Player',
             'inBattle' => false,
-            //'rgb' => [rand(0, 255), rand(0, 255), rand(0, 255)],
+            'rgb' => $this->randomColor(),
+            'id' => $this->user->id,
         ];
+    }
+
+    /**
+     * @return array
+     */
+    public function randomColor(): array
+    {
+        $color = [0, 0, 0];
+        $color[rand(0, 2)] = rand(0, 255);
+
+        return $color;
     }
 
     /**
@@ -369,6 +384,9 @@ class Game
                     $cell['color'] = $cell['targetItem']['color'];
                     $cell['rgb'] = $cell['targetItem']['rgb'];
                 }
+                $cell['otherPlayers'] = $this->hereOtherPlayers($y, $x)
+                    ? Players::get()[$y][$x]
+                    : [];
                 $row[] = $cell;
             }
             $map[] = $row;
@@ -419,6 +437,14 @@ class Game
         return isset($this->targets[$y][$x]);
     }
 
+    public function hereOtherPlayers(int $y, int $x): bool
+    {
+        $players = Players::get();
+
+        return isset($players[$y][$x])
+            && (count($players[$y][$x]) > 1 || !isset($players[$y][$x][$this->player['id']]));
+    }
+
     /**
      * @param string $position
      * @param int    $step
@@ -436,6 +462,7 @@ class Game
             $this->log("Player move: {$this->player['moveName']}");
             $this->map[$this->player['y']][$this->player['x']]['player'] = false;
             $this->map[$nextCell['y']][$nextCell['x']]['player'] = true;
+            $this->player['old'.str($position)->upper()->toString()] = $this->player[$position];
             $this->player[$position] = $nextCell[$position];
         } else {
             $this->log("Player not move (here target): {$this->player['moveName']}");
@@ -488,11 +515,9 @@ class Game
      *
      * @return void
      */
-    public function log(string $message, ?string $img = null, ?float $start = null): void
+    public function log(string $message, null|string|array $img = null, ?float $start = null): void
     {
-        if ($img) {
-            event(new TestEvent($this->user ?? User::first(), $message, $img, $start));
-        }
+        event(new TestEvent($this->user ?? User::first(), $message, $img, $start));
     }
 
     /**
@@ -536,7 +561,11 @@ class Game
      */
     public function leaveBattle(): void
     {
+        $targetOnFocus = $this->getTargetOnFocus();
         $this->battleStatus = false;
+        $this->targets[$targetOnFocus['y']][$targetOnFocus['x']]['inBattle'] = false;
+        $this->player['inBattle'] = false;
+        $this->log('Battle: ' . (int) $this->battleStatus);
     }
 
     /**
@@ -714,17 +743,16 @@ class Game
                 $color = imagecolorallocate($this->image, ...$cell['rgb']);
                 imagefilledrectangle($this->image, $startX, $startY, $startX + 100, $startY + 100, $color);
                 if ($cell['player']) {
-                    // left
-                    imagettftext($this->image, 14, 0, $startX + 10, $startY + 55, $this->getArrowColorFor('left'), $this->fonts['arial'], '<');
-                    // right
-                    imagettftext($this->image, 14, 0, $startX + 80, $startY + 55, $this->getArrowColorFor('right'), $this->fonts['arial'], '>');
-                    // up
-                    imagettftext($this->image, 14, 90, $startX + 58, $startY + 24, $this->getArrowColorFor('up'), $this->fonts['arial'], '>');
-                    // down
-                    imagettftext($this->image, 14, -90, $startX + 45, $startY + 80, $this->getArrowColorFor('down'), $this->fonts['arial'], '>');
+                    $this->setCursors($startX, $startY, $this->player);
                 } elseif ($cell['target']) {
                     if (!$cell['targetItem']['canMove']) {
                         imagettftext($this->image, 14, 0, $startX + 35, $startY + 50, $this->imageColors['black'], $this->fonts['arial'], 'zzZ');
+                    }
+                } elseif ($cell['otherPlayers']) {
+                    foreach ($cell['otherPlayers'] as $otherPlayer) {
+                        $color = imagecolorallocate($this->image, ...$otherPlayer['rgb']);
+                        imagefilledrectangle($this->image, $startX, $startY, $startX + 100, $startY + 100, $color);
+                        $this->setCursors($startX, $startY, $otherPlayer);
                     }
                 } else {
                     imagettftext($this->image, 14, 0, $startX + 35, $startY + 55, $this->imageColors['black'], $this->fonts['arial'], $cell['y'].'x'.$cell['x']);
@@ -733,9 +761,27 @@ class Game
         }
     }
 
-    public function getArrowColorFor(string $position)
+    /**
+     * @param int $startX
+     * @param int $startY
+     * @param array $player
+     * @return void
+     */
+    public function setCursors(int $startX, int $startY, array $player): void
     {
-        return $this->player['moveName'] === $position
+        // left
+        imagettftext($this->image, 14, 0, $startX + 10, $startY + 55, $this->getArrowColorFor($player, 'left'), $this->fonts['arial'], '<');
+        // right
+        imagettftext($this->image, 14, 0, $startX + 80, $startY + 55, $this->getArrowColorFor($player, 'right'), $this->fonts['arial'], '>');
+        // up
+        imagettftext($this->image, 14, 90, $startX + 58, $startY + 24, $this->getArrowColorFor($player, 'up'), $this->fonts['arial'], '>');
+        // down
+        imagettftext($this->image, 14, -90, $startX + 45, $startY + 80, $this->getArrowColorFor($player, 'down'), $this->fonts['arial'], '>');
+    }
+
+    public function getArrowColorFor(array $player, string $position)
+    {
+        return $player['moveName'] === $position
             ? $this->imageColors['black']
             : $this->imageColors['grey'];
     }
