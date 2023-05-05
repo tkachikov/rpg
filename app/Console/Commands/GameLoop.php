@@ -32,7 +32,7 @@ class GameLoop extends Command
             $start = microtime(true);
             $service->run();
             dump(microtime(true) - $start);
-            usleep(1000);
+            usleep(10000);
         }
     }
 }

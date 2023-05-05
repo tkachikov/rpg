@@ -37,12 +37,7 @@
                     const content = document.createTextNode(`[${e.time}]: ${e.message}`);
                     newDiv.appendChild(content);
                     document.querySelector('#logs').prepend(newDiv);
-                    if (e.img.length) {
-                        /*
-                        for (let i = 0; i < e.img.length; i++) {
-                            frames.push(e.img[i]);
-                        }
-                         */
+                    if (e.img && e.img.length) {
                         setImg(e.img[0]);
                     }
                     if (e.microtime) {
@@ -56,7 +51,6 @@
                 document.querySelector('#frame').setAttribute('src', img);
             }
             function keyDown(event) {
-                console.log(event.code);
                 switch (event.code) {
                     case 'ArrowUp':
                         move('y', -1);
@@ -131,13 +125,6 @@
             setInterval(function () {
                 document.querySelector('#fps').textContent = 'timeRoute: ' + getAvg(timeRoute) + 'ms, exec: ' + getAvg(exec) + ' ms';
             }, 1000)
-            /*
-            setInterval(function () {
-                if (frames.length) {
-                    setImg(frames.shift());
-                }
-            }, 100)
-             */
         </script>
     </body>
 </html>
